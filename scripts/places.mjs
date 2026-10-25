@@ -7,7 +7,7 @@ import { MODULE_ID, FOLDER, PIN_SIZE, HIDDEN_ALPHA } from "./constants.mjs";
 import { t, info, warn, local, language } from "./i18n.mjs";
 import { pack, defs, isActiveGM } from "./state.mjs";
 import { atlasIdOf, sceneOfAtlas, norm, px, atlasName } from "./atlas.mjs";
-import { placeData, playerLabel, parkingSpot, localText, exportPack, STATUSES, escapeHTML as esc, findByName } from "./util.mjs";
+import { placeData, playerLabel, parkingSpot, localText, exportPack, STATUSES, escapeHTML as esc, findByName, progressOf, stepsCrossed } from "./util.mjs";
 
 const OWN = () => CONST.DOCUMENT_OWNERSHIP_LEVELS;
 
@@ -151,7 +151,8 @@ export async function setupPlaces(atlasId) {
     const page = pages.get(p.id);
     const old = placeOfPage(page);
     if (!page || !old || fresh.has(p.id)) continue;
-    const next = { ...placeData(p), status: old.status };
+    // The pack refreshes text and links; status and "completed" are play, kept from this world.
+    const next = { ...placeData(p), status: old.status, done: !!old.done };
     if (JSON.stringify(next) === JSON.stringify(old)) continue;
     await page.update({ name: pageName(next), "text.content": pageHTML(next), [`flags.${MODULE_ID}.place`]: next });
     updated++;
@@ -201,6 +202,28 @@ export async function savePlace(page, patch) {
 export async function setStatus(page, status) {
   if (!STATUSES.includes(status)) return null;
   return savePlace(page, { status });
+}
+
+/* ---------------- progress ---------------- */
+
+/** How far a progress track is (places marked completed). */
+export function trackProgress(track) {
+  const done = new Set(placePages().map(placeOfPage).filter(p => p?.done).map(p => p.id));
+  return progressOf(track, id => done.has(id));
+}
+
+/** Mark a place completed (or not); tells the GM when a track reaches a step ("4 gate-towns → 8th level"). */
+export async function setDone(page, done) {
+  if (!game.user.isGM || !page) return null;
+  const tracks = defs().progress;
+  const before = tracks.map(tr => trackProgress(tr).count);
+  const next = await savePlace(page, { done: !!done });
+  tracks.forEach((tr, i) => {
+    for (const step of stepsCrossed(tr, before[i], trackProgress(tr).count)) {
+      ui.notifications.info(t("Notify.StepReached", { track: local(tr.name) || tr.id, count: step.count, text: local(step.text) }), { permanent: true });
+    }
+  });
+  return next;
 }
 
 /** A visit makes a place "visited" (and tells the players' maps). */

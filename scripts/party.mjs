@@ -6,12 +6,13 @@ import { t, warn, local, language, toggleLanguage } from "./i18n.mjs";
 import { setting } from "./settings.mjs";
 import { road, defs, company } from "./state.mjs";
 import { atlasName, atlasIdOf, rectOf } from "./atlas.mjs";
-import { findPlace } from "./places.mjs";
+import { findPlace, placeName, trackProgress } from "./places.mjs";
+import * as clock from "./clock.mjs";
 import { PlaceCard } from "./card.mjs";
 import * as roadOps from "./road.mjs";
 import { purse, purseLog, change as purseChange, undoEntry } from "./purse.mjs";
 import { openNotes } from "./page.mjs";
-import { escapeHTML as esc, activeJourney, sessionOrder, coinsText, parseCoins, COINS, fromNorm } from "./util.mjs";
+import { escapeHTML as esc, activeJourney, sessionOrder, coinsText, parseCoins, COINS, fromNorm, parseHHMM } from "./util.mjs";
 
 const { ApplicationV2, DialogV2 } = foundry.applications.api;
 const TABS = { road: "fa-route", purse: "fa-coins", notes: "fa-feather-pointed" };
@@ -90,17 +91,14 @@ export class PartyWindow extends ApplicationV2 {
     const j = activeJourney(r);
     const stops = j?.stops ?? [];
     const hows = defs().hows;
-    let out = "";
+    let out = this.#clock() + this.#progress();
     if (gm) {
       const howOpts = [`<option value="">—</option>`, ...Object.entries(hows).map(([id, h]) => `<option value="${esc(id)}" ${id === r.next.how ? "selected" : ""}>${esc(local(h.name))}</option>`)].join("");
-      const times = defs().times.map(x => `<option value="${esc(local(x))}"></option>`).join("");
       out += `<div class="pa-next">
         <p class="pa-label"><i class="fa-solid fa-stamp"></i> ${esc(t("Road.NextLabel"))}</p>
         <div class="pa-row">
           <label ${tip(t("Road.SessionHint"))}>${esc(t("Road.Session"))} <input type="text" name="next.session" value="${esc(r.next.session)}" placeholder="S03"></label>
-          <label ${tip(t("Road.DayHint"))}>${esc(t("Road.Day"))} <input type="text" name="next.day" value="${esc(r.next.day)}" placeholder="1"></label>
-          <label>${esc(t("Road.Time"))} <input type="text" name="next.time" value="${esc(r.next.time)}" list="pa-times"><datalist id="pa-times">${times}</datalist></label>
-          <label>${esc(t("Road.How"))} <select name="next.how">${howOpts}</select></label>
+          <label ${tip(t("Road.HowHint"))}>${esc(t("Road.How"))} <select name="next.how">${howOpts}</select></label>
         </div>
         <div class="pa-row pa-tools">
           ${btn("place-company", "fa-people-group", t("Road.PlaceCompany"), tip(t("Road.PlaceCompanyHint")))}
@@ -117,7 +115,7 @@ export class PartyWindow extends ApplicationV2 {
     if (hidden) return out + `<p class="pa-hint">${esc(t("Road.HiddenForPlayers"))}</p>`;
     const last = stops.at(-1);
     out += `<p class="pa-now"><i class="fa-solid fa-location-dot"></i> ${last
-      ? esc(t("Road.Now", { place: roadOps.stopName(last), atlas: atlasName(last.atlas) })) + (last.day ? ` · ${esc(t("Card.Day", { day: last.day }))}` : "") + (last.time ? ` · ${esc(last.time)}` : "")
+      ? esc(t("Road.Now", { place: roadOps.stopName(last), atlas: atlasName(last.atlas) }))
       : esc(t("Road.NoStops"))}</p>`;
     if (!stops.length) return out + (gm ? `<p class="pa-hint">${esc(t("Road.HowToStart"))}</p>` : "");
 
@@ -128,7 +126,7 @@ export class PartyWindow extends ApplicationV2 {
       out += `<h3 class="pa-session">${esc(s || t("Road.NoSession"))}</h3><ol class="pa-stops">`;
       for (const { st, n } of list) {
         const how = hows[st.how];
-        const meta = [st.day && t("Card.Day", { day: st.day }), st.time, how && local(how.name), st.cost].filter(Boolean).join(" · ");
+        const meta = [st.day && t("Card.Day", { day: st.day }), st.time, how && local(how.name), st.travel?.seconds && `⧗ ${clock.duration(st.travel.seconds)}`, st.cost].filter(Boolean).join(" · ");
         out += `<li class="pa-stop" data-id="${esc(st.id)}">
           <span class="pa-n">${n}</span>
           <div class="pa-stop-main">
@@ -150,6 +148,40 @@ export class PartyWindow extends ApplicationV2 {
       }
     }
     return out;
+  }
+
+  /** The clock, for everyone; the GM can move it on or set it. */
+  #clock() {
+    const gm = game.user.isGM;
+    const ctl = gm ? `<div class="pa-row pa-clock-tools">
+        ${btn("clock", "fa-forward", "10′", `data-s="600" ${tip(t("Clock.Plus", { time: clock.duration(600) }))}`)}
+        ${btn("clock", "fa-forward", "1h", `data-s="3600" ${tip(t("Clock.Plus", { time: clock.duration(3600) }))}`)}
+        ${btn("clock", "fa-bed", "8h", `data-s="28800" ${tip(t("Clock.LongRest"))}`)}
+        ${btn("clock", "fa-forward-fast", "1d", `data-s="86400" ${tip(t("Clock.Plus", { time: clock.duration(86400) }))}`)}
+        ${btn("clock", "fa-backward", "", `data-s="-3600" ${tip(t("Clock.Minus", { time: clock.duration(3600) }))}`, "icon")}
+        ${btn("clock-set", "fa-clock", t("Clock.Set"), tip(t("Clock.SetHint")))}
+      </div>` : "";
+    return `<div class="pa-clock"><i class="fa-solid fa-hourglass-half"></i> <span class="pa-clock-label">${esc(clock.label())}</span>${ctl}</div>`;
+  }
+
+  /** Progress tracks (e.g. gate-towns completed → level), for players only if the track allows. */
+  #progress() {
+    const gm = game.user.isGM;
+    const tracks = defs().progress.filter(tr => gm || tr.players !== false);
+    if (!tracks.length) return "";
+    return tracks.map(tr => {
+      const pr = trackProgress(tr);
+      const dots = (tr.places ?? []).map(id => {
+        const hit = findPlace(id);
+        const known = hit && (gm || hit.place.status !== "hidden");
+        const name = known ? placeName(hit.place) : "?";
+        return `<span class="pa-dot ${pr.done.includes(id) ? "on" : ""}" data-tooltip="${esc(name)}"></span>`;
+      }).join("");
+      const reached = pr.reached.at(-1);
+      const next = pr.next ? t("Progress.Next", { count: pr.next.count, text: local(pr.next.text) }) : t("Progress.AllDone");
+      return `<div class="pa-progress"><span class="pa-progress-name">${esc(local(tr.name) || tr.id)}</span>
+        <span class="pa-dots">${dots}</span><span class="pa-meta">${pr.count}/${pr.total}${reached ? ` · ${esc(local(reached.text))}` : ""} · ${esc(next)}</span></div>`;
+    }).join("");
   }
 
   #purse() {
@@ -220,6 +252,8 @@ export class PartyWindow extends ApplicationV2 {
         case "place-company": await roadOps.placeCompany(); break;
         case "create-company": await roadOps.createCompany(); this.render(); break;
         case "undo": await roadOps.undoLast(); break;
+        case "clock": await clock.advance(Number(el.dataset.s)); break;
+        case "clock-set": await setClockDialog(); break;
         case "archive": {
           const name = await DialogV2.prompt({
             window: { title: t("Road.ArchiveTitle") },
@@ -259,4 +293,22 @@ export class PartyWindow extends ApplicationV2 {
       await canvas.animatePan({ x: p.x, y: p.y });
     }
   }
+}
+
+/** "It is day …, at …": the GM sets the clock (only the day count moves; Foundry's world time doesn't). */
+export async function setClockDialog() {
+  const { DialogV2 } = foundry.applications.api;
+  const c = clock.read();
+  const res = await DialogV2.prompt({
+    window: { title: t("Clock.SetTitle"), icon: "fa-solid fa-clock" },
+    content: `<div class="form-group"><label>${esc(t("Clock.DayLabel"))}</label><div class="form-fields"><input type="number" name="day" min="1" value="${c.day}"></div></div>
+      <div class="form-group"><label>${esc(t("Clock.TimeLabel"))}</label><div class="form-fields"><input type="text" name="time" value="${c.time}" placeholder="10:00"></div></div>
+      <p class="hint">${esc(t("Clock.SetHint"))}</p>`,
+    ok: { label: t("Clock.Set"), callback: (_e, button) => ({ day: button.form.elements.day.value, time: button.form.elements.time.value }) },
+    rejectClose: false
+  }).catch(() => null);
+  if (!res) return;
+  const tod = parseHHMM(res.time);
+  if (tod === null) return warn("Notify.BadTime", { time: res.time });
+  await clock.setTo(Number(res.day) || 1, tod);
 }

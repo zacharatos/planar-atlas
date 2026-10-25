@@ -17,6 +17,9 @@ scripts/
   road.mjs             the party actor and its token, recording stops on drop (snap), player lock, move to a
                        place, undo / archive / clear
   trail.mjs            the road drawn on the canvas (PIXI, in the interface group), area labels, the pulse
+  clock.mjs            the in-world clock: Foundry's world time (or its own) + an epoch for day 1; read, label, advance, set
+  travel.mjs           trip estimate/roll, the GM's trip window (DialogV2), encounter tables rolled and whispered to the GM
+  hud.mjs              the clock chip on atlas maps
   purse.mjs            the common purse: changes through the active GM (socket), history, undo, outside changes
   party.mjs            the party window (ApplicationV2): Road, Purse, Notes
   console.mjs          the GM console (ApplicationV2): Setup, Places
@@ -41,6 +44,10 @@ There is no build step: Foundry loads `scripts/main.mjs` directly.
 - **The road** is one hidden world setting: `{schema, active, journeys: [{id, name, archived, stops: [...]}], next: {session, day, time, how}, hidden: {players, all}}`. A stop: `{id, date, atlas, scene, place|null, label, x, y (0–1), session, day, time, how, note, cost, heroes}`. Only the active GM writes it, through `mutateRoad` (one write at a time); every client redraws on the setting's `onChange`.
 - **Recording:** `updateToken` on the active GM's client. A move of the party token on an atlas (not flagged `planarAtlasSkip`) becomes a stop; if a place is within *Snap distance*, the token is moved onto it (flagged, so it isn't recorded twice) and the place becomes visited.
 - **The purse** is the party actor's `system.currency`. History: `flags.planar-atlas.purseLog` on the actor. Players send `{op: "purse"}` over the module socket; the active GM applies it (`spendCoins` makes change) and answers `{op: "purse-reply"}`. A currency change not made by us (sheet, `/award`) is diffed against the GM's last snapshot and logged.
+- **The clock** is `game.time.worldTime` (setting *Use Foundry's world time*, default on) or the hidden `clockSeconds`; `clockEpoch` is the clock value at which day 1 began. Setting the clock moves the epoch only. A stop stores `t` (clock seconds at arrival), `day`, `time` ("14:20 · ζενίθ") and `travel: {seconds, formula, total}`; undo advances the clock by `-travel.seconds`.
+- **Travel**: `util.mjs › routeLength` (map widths, aspect-corrected, through wraps) → `travelRule` / `travelEstimate` → `travel.mjs › planTrip` (roll with Foundry dice, the trip window) → `road.mjs › recordMove`, which handles one move at a time (a promise chain), so a second drop waits for the first trip window.
+- **Encounters**: `tables` in the pack, inline (`formula` + `rows` with `range`) or `rollTable` (a world RollTable by name); `encounterTables(atlas, area)` picks the destination area's then the atlas's; results are whispered to every GM.
+- **Progress**: a place's `done` flag (card button); `progressOf(track, isDone)` / `stepsCrossed` in `util.mjs`.
 - **Pages** are rewritten 2 s after a change (road, purse); the notes page is made once and never overwritten.
 - **Coordinates** are stored as fractions of the map rectangle (`scene.dimensions` without padding), so packs survive a bigger image.
 
@@ -92,6 +99,18 @@ Two browsers: the GM and a player who owns a character. dnd5e 6.x.
 - GM **undo** on a line: the coins go back, the line is struck through, an "Undo: …" line is added.
 - With the GM logged out, the player's Pay: "The GM needs to be online".
 - With *Players use the common purse* off: the player sees "The GM keeps the purse".
+
+**Clock, travel, encounters, progress (0.2.0)** (import `data/example-pack.json` again: it now has a calendar, travel rules, a table and a track)
+- Party window → Road: the clock reads "Day 1 · 00:00 · night" on a new world. **Set** day 2, 10:00: "Day 2 · 10:00 · morning"; Foundry's world time (Settings → the game's time, or `game.time.worldTime`) is unchanged. +1 h, +8 h, +1 d, −1 h move it; the player's window and the chip at the top of the atlas follow at once. Turn the chip off in the client settings: it goes.
+- Next stop *How* = On foot. Drag the party token half the map's width: the trip window says ≈ 1 h 30 min (3 h per map width), "now: Day 2 · 10:00 · morning". Change *How* to Hired carriage: the time drops (re-estimated). Confirm: "1 h 30 min passed", the stop shows the trip, the clock moved. Check `game.time.worldTime` moved by the same amount.
+- **No time passes** in the trip window: the stop is recorded, the clock doesn't move.
+- **Undo**: the stop goes, "… taken back", the clock goes back by the trip.
+- A rule with `roll` (add `"boat": {"roll": "2d4", "unit": "day"}` and a way "boat" to the pack): the window shows "Rolled 2d4: 5 days"; the field is editable.
+- Drop the token near «The Salty Lantern» (area Docks, table) with *Roll for something on the way* ticked: a whisper to the GM with the table's name, the roll and the row; players see nothing. Card → **Encounter** rolls it again.
+- Setting *Travel time* = pass without asking: no window, the estimate is used. *Off*: no time ever passes.
+- Drag quickly twice: the second trip window waits for the first.
+- Card → **Mark completed** on two places of the *Sights seen* track: the party window shows 2/3 and the step; the GM gets a lasting notice "Sights seen: 2 completed → …". A player sees the track (it has `players: true`); hidden places show "?" in its tooltip.
+- Road page: the *Trip* column has the trip's length.
 
 **Cards, buttons, pages**
 - Card with a Theater link (Planar Theater active, a place with that name exists): **Theater** shows it over the map; the eye-slash takes it down. **Sound** starts the soundscape (Planar Soundboard). **Battle map** activates that scene. **Prep** opens the note at the heading. **Pay** takes the place's price from the purse.

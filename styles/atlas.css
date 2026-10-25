@@ -104,3 +104,28 @@
 a.pa-button { padding: 1px 6px; border-radius: 4px; background: rgba(201, 161, 78, 0.18); border: 1px solid rgba(201, 161, 78, 0.5); cursor: pointer; white-space: nowrap; }
 a.pa-button:hover { background: rgba(201, 161, 78, 0.35); }
 a.pa-button.busy { opacity: 0.5; pointer-events: none; }
+
+/* Clock */
+.planar-atlas .pa-clock { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; margin-bottom: 8px; border: 1px solid var(--pa-line); border-radius: 6px; background: var(--pa-bg2); }
+.planar-atlas .pa-clock > i { color: var(--pa-gold); }
+.planar-atlas .pa-clock-label { font-size: 1.15em; font-weight: bold; }
+.planar-atlas .pa-clock-tools { margin-left: auto; }
+.planar-atlas .pa-clock-tools button { padding: 1px 6px; }
+.pa-clock-chip { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 70; padding: 4px 14px; border-radius: 14px; background: rgba(20, 14, 30, 0.82); border: 1px solid rgba(201, 161, 78, 0.6); color: #f4e9c8; font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; font-size: 15px; pointer-events: auto; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.pa-clock-chip i { color: #c9a14e; margin-right: 4px; }
+
+/* Progress */
+.planar-atlas .pa-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; }
+.planar-atlas .pa-progress-name { font-weight: bold; }
+.planar-atlas .pa-dots { display: inline-flex; gap: 4px; }
+.planar-atlas .pa-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--pa-gold); }
+.planar-atlas .pa-dot.on { background: var(--pa-gold); }
+.planar-atlas .pa-done { color: #8fd18a; font-weight: bold; }
+.planar-atlas button.on { background: rgba(143, 209, 138, 0.25); border-color: #8fd18a; }
+
+/* Travel dialog and chat */
+.pa-travel .pa-trip { margin: 0 0 8px; }
+.pa-travel .pa-rolled { margin: 4px 0; font-weight: bold; }
+.pa-travel input[type="number"] { width: 6em; }
+.planar-atlas-chat p { margin: 0 0 4px; }
+.planar-atlas-chat .pa-meta { opacity: 0.7; font-size: 0.9em; }

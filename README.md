@@ -10,6 +10,9 @@ Living campaign maps for **Foundry VTT v14** and the **dnd5e** system: a big map
 - **Places as pins**, each with a **card**: a picture, what the players know, when they were there; for the GM also the secrets, the book reference and buttons. Places are ordinary map notes, so you drag, move and delete them as usual.
 - **Players only see what they know.** Each place is *hidden* (no pin for them), *rumoured* (a "?" pin and the rumour text), *known* or *visited*. Change one by one, or reveal a **whole set** at once ("everything the guide told them").
 - **The party's road.** The party is a dnd5e **group actor** with a token you drag on the atlas: every drop is a **stop**, snapped to the nearest place, stamped with the session, the in-world day and time and how they travelled. The road is drawn on the map with numbered stops, one shade per session (older sessions fainter) and a pulse where the party stands. It stays until you **archive** it (a new journey starts where the party stands) or clear it. **Undo** takes back the last stop and moves the token back.
+- **An in-world clock** (Foundry's world time by default) with named parts of the day, shown in the party window and as a chip on the map. **Travel time** per atlas and way of travelling: estimated from the road's length, rolled ("3d6 days"), or fixed; the GM confirms or changes each trip; undo takes the time back.
+- **Encounters on the way:** the destination area's and the atlas's tables, rolled when the GM ticks it and whispered to the GM.
+- **Progress tracks:** completed places count towards steps ("2 → 7th level"), shown to the party.
 - **Maps that wrap around.** A pack can split a map into zones whose edges join (a ring city drawn as two strips): the road goes off one edge and comes back in at the other, with arrows, instead of cutting across the poster.
 - **Area labels** (wards, regions) drawn on the map.
 - **Only the GM moves the party** on an atlas, even though the players own the party actor.
@@ -47,7 +50,8 @@ https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json
 
 ## At the table
 
-- Before moving, set the **session** label (e.g. `S03`), the in-world **day** and **time**, and **how** they travel in the party window's Road tab. They are stamped on every stop until you change them.
+- Once: **Set** the clock (e.g. day 1, 10:00). Before moving, set the **session** label (e.g. `S03`) and **how** they travel in the party window's Road tab.
+- Drop the token: the trip window shows how long it takes (estimated or rolled); change it or confirm, tick *Roll for something on the way* if you like. The clock moves on.
 - Drag the party token. Near a place, it snaps there, the place becomes *visited* and its card is a click away.
 - Double-click any pin for its card. Players get the player view of the same card.
 - Pull the players to the atlas like any scene, or leave them on a battle map and let them open the party window.
@@ -62,12 +66,18 @@ https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json
   "categories": { "tavern": { "name": { "en": "Tavern" }, "icon": "icons/svg/tankard.svg", "color": "#f0b46a" } },
   "hows": { "foot": { "name": { "en": "On foot" }, "icon": "fa-person-walking" } },
   "times": [{ "en": "morning" }],
+  "calendar": { "bands": [{ "from": "05:00", "name": { "en": "morning" } }, { "from": "20:00", "name": { "en": "night" } }] },
+  "tables": { "docks-enc": { "name": { "en": "The Docks" }, "formula": "1d4", "rows": [{ "range": [1, 2], "text": { "en": "…" } }], "ref": "…" },
+              "world-table": { "name": { "en": "…" }, "rollTable": "A RollTable in the world" } },
+  "progress": [{ "id": "sights", "name": { "en": "Sights seen" }, "places": ["tavern", "temple"], "steps": [{ "count": 2, "text": { "en": "…" } }], "players": true }],
   "sets": { "guide": { "name": { "en": "What the guide knows" }, "status": "known" } },
   "atlases": [{
     "id": "city", "name": { "en": "The City" }, "map": "city.webp", "clock": "hours",
     "zones": [{ "id": "north", "x0": 0, "y0": 0, "x1": 1, "y1": 0.49 }],
     "links": [{ "a": { "zone": "north", "edge": "right" }, "b": { "zone": "south", "edge": "left" } }],
-    "areas": [{ "id": "docks", "name": { "en": "The Docks" }, "x": 0.2, "y": 0.2, "size": 9 }]
+    "areas": [{ "id": "docks", "name": { "en": "The Docks" }, "x": 0.2, "y": 0.2, "size": 9, "table": "docks-enc" }],
+    "travel": { "foot": { "per": "map", "amount": 3, "unit": "hour", "min": 10 }, "boat": { "roll": "2d4", "unit": "day" }, "portal": { "fixed": 1, "unit": "minute" }, "default": { "per": "map", "amount": 3, "unit": "hour" } },
+    "encounters": { "table": "world-table", "default": false }
   }],
   "places": [{
     "id": "tavern", "atlas": "city", "cat": "tavern", "status": "known", "area": "docks",
@@ -79,7 +89,7 @@ https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json
 }
 ```
 
-A reveal set raises its places to its `status` (`known` by default, or `rumoured`), never lowers one. Positions are fractions of the map (0 to 1), so a pack works with any size of the same image. `x`/`y` `null` means "not placed yet". Text fields can be a string or `{ "en": …, "el": … }`. Built-in categories: landmark, tavern, temple, shop, faction, portal, danger, home, town, wild, hb. Relative picture paths are read from the *Image folder* setting.
+Travel rules: `per: "map"` is the time to cross the whole map's width (scaled by the road's length; `min` in minutes, rounded to 5 minutes), `roll` a dice formula per trip, `fixed` a set time; units `minute`, `hour`, `day`; `default` covers ways without a rule. Areas without `x`/`y` get their label in the middle of their places. A reveal set raises its places to its `status` (`known` by default, or `rumoured`), never lowers one. Positions are fractions of the map (0 to 1), so a pack works with any size of the same image. `x`/`y` `null` means "not placed yet". Text fields can be a string or `{ "en": …, "el": … }`. Built-in categories: landmark, tavern, temple, shop, faction, portal, danger, home, town, wild, hb. Relative picture paths are read from the *Image folder* setting.
 
 ## Settings
 
@@ -89,7 +99,9 @@ A reveal set raises its places to its `status` (`known` by default, or `rumoured
 - **Players use the common purse** (on by default).
 - **Party button for players** (on by default).
 - **Default language**, and each user's own **language** for the module.
-- **Area names on the atlas** (per user).
+- **Travel time**: ask each time / pass it without asking / off.
+- **Use Foundry's world time** (on by default).
+- **Area names on the atlas** and **Clock on atlas maps** (per user).
 
 ## Macro API
 
@@ -103,6 +115,8 @@ A reveal set raises its places to its `status` (`known` by default, or `rumoured
 | `move(name)`, `undo()`, `archive(name)`, `setNext({session, day, time, how})`, `road()` | the road |
 | `pay("3gp", why, "out"\|"in")`, `purse()`, `purseLog()` | the purse |
 | `company()`, `createCompany()`, `placeCompany(scene)` | the party actor |
+| `clock()`, `clockLabel()`, `advanceClock(seconds)`, `setClock(day, "hh:mm")` | the clock |
+| `rollTable(id)`, `setDone(name, done)`, `progress()` | encounters, progress |
 | `setupPlaces(atlasId)`, `exportPack()`, `defs()`, `syncPages()`, `redraw()` | setup |
 
 ## Development

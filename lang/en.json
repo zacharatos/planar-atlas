@@ -41,6 +41,21 @@
       "showLabels": {
         "Name": "Area names on the atlas",
         "Hint": "Draw the names of wards and regions on atlas maps."
+      },
+      "travelPrompt": {
+        "Name": "Travel time",
+        "Hint": "When the party token is dropped: ask (a small window with the estimate or the roll, which you can change), pass the time without asking, or never pass time.",
+        "Ask": "Ask me each time",
+        "Auto": "Pass it without asking",
+        "Off": "No travel time"
+      },
+      "useWorldTime": {
+        "Name": "Use Foundry's world time",
+        "Hint": "The atlas clock is Foundry's own world time (so effect durations and calendar modules move with it). Off: the atlas keeps its own clock."
+      },
+      "showClock": {
+        "Name": "Clock on atlas maps",
+        "Hint": "Show the in-world day and time at the top of the screen on an atlas."
       }
     },
     "Status": {
@@ -92,7 +107,12 @@
       "Prep": "Prep",
       "Pay": "The party pays {price}",
       "Edit": "Edit",
-      "Delete": "Delete this place"
+      "Delete": "Delete this place",
+      "Done": "Completed",
+      "MarkDone": "Mark completed",
+      "DoneHint": "Completed places count for the progress tracks (e.g. gate-towns → level).",
+      "Encounter": "Encounter",
+      "EncounterHint": "Roll this place's encounter tables (whispered to you)."
     },
     "Form": {
       "NameEl": "Name (Greek)",
@@ -160,7 +180,8 @@
       "Archived": "Archived journeys",
       "Stops": "{n} stops",
       "DeleteJourney": "Delete this journey",
-      "APoint": "Somewhere on the map"
+      "APoint": "Somewhere on the map",
+      "HowHint": "Written on the next stop and used for its travel time."
     },
     "Purse": {
       "NoCompany": "The GM hasn't set up the party yet.",
@@ -265,7 +286,8 @@
           "place": "Place",
           "how": "How",
           "cost": "Cost",
-          "note": "Note"
+          "note": "Note",
+          "travel": "Trip"
         }
       },
       "purse": {
@@ -319,7 +341,52 @@
       "NoPrep": "No note called «{name}».",
       "NoPlace": "No place called «{name}».",
       "NoNotes": "The party's notes haven't been made yet: the GM opens them once.",
-      "PagesSynced": "Pages updated."
+      "PagesSynced": "Pages updated.",
+      "TimePassed": "{time} passed: {clock}.",
+      "TimeTakenBack": "{time} taken back: {clock}.",
+      "NoRollTable": "No roll table called «{name}» in this world.",
+      "StepReached": "{track}: {count} completed → {text}",
+      "BadTime": "«{time}» isn't a time (use hh:mm)."
+    },
+    "Clock": {
+      "Day": "Day {day}",
+      "OneDay": "{n} day",
+      "Days": "{n} days",
+      "Hours": "{n} h",
+      "Minutes": "{n} min",
+      "Unit": {
+        "minute": "minutes",
+        "hour": "hours",
+        "day": "days"
+      },
+      "Plus": "Move the clock on {time}",
+      "Minus": "Take the clock back {time}",
+      "LongRest": "A Long Rest: 8 hours",
+      "Set": "Set",
+      "SetTitle": "Set the clock",
+      "SetHint": "Only the day count and the time shown change; Foundry's own world time is not moved.",
+      "DayLabel": "Day",
+      "TimeLabel": "Time (hh:mm)",
+      "ChipHint": "The day and time in the world (Planar Atlas)"
+    },
+    "Travel": {
+      "Title": "The trip",
+      "Now": "now: {clock}",
+      "Takes": "It takes",
+      "NoRule": "No travel rule for this: set the time yourself.",
+      "RuleRoll": "Rolled: {formula} {unit}.",
+      "RuleMap": "Estimated from the road's length ({amount} {unit} to cross the whole map).",
+      "RuleFixed": "Always {amount} {unit}.",
+      "Rolled": "Rolled {formula}: {total} {unit}",
+      "Encounters": "Roll for something on the way ({tables})",
+      "Hint": "Change the time if you like; it is added to the clock and written on the stop.",
+      "Go": "Travel",
+      "NoTime": "No time passes",
+      "Speaker": "On the way"
+    },
+    "Progress": {
+      "Next": "next: {count} → {text}",
+      "AllDone": "all steps reached"
     }
   }
 }

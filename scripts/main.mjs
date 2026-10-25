@@ -7,11 +7,14 @@ import * as roadOps from "./road.mjs";
 import * as trail from "./trail.mjs";
 import * as purse from "./purse.mjs";
 import * as pages from "./page.mjs";
+import * as hud from "./hud.mjs";
+import * as clock from "./clock.mjs";
 import { PlaceCard } from "./card.mjs";
 import { PartyWindow } from "./party.mjs";
 import { AtlasConsole } from "./console.mjs";
 import { registerEnrichers, listenForClicks } from "./enrich.mjs";
-import { parseCoins } from "./util.mjs";
+import { parseCoins, parseHHMM } from "./util.mjs";
+import * as travel from "./travel.mjs";
 
 const refreshWindows = () => {
   AtlasConsole.instance?.refreshSoon();
@@ -20,6 +23,7 @@ const refreshWindows = () => {
 };
 
 function onSettingChange(what) {
+  if (what === "clock" || what === "language" || what === "pack") hud.refresh();
   if (what === "road" || what === "pack" || what === "draw" || what === "language") trail.redrawSoon();
   if (what === "language") for (const n of globalThis.canvas?.notes?.placeables ?? []) places.styleNote(n);
   if (what === "company") purse.rememberPurse();
@@ -80,10 +84,21 @@ Hooks.once("ready", async () => {
     exportPack: () => places.packForExport(),
     defs: () => defs(),
     syncPages: async () => { await pages.syncRoadPage(); await pages.syncPursePage(); },
-    redraw: () => trail.draw()
+    redraw: () => trail.draw(),
+    /** The in-world clock: {day, hour, minute, time, band}; label(); advance(seconds); setTo(day, "10:00"). */
+    clock: () => clock.read(),
+    clockLabel: () => clock.label(),
+    advanceClock: seconds => clock.advance(seconds),
+    setClock: (day, time) => clock.setTo(day, parseHHMM(time) ?? 0),
+    /** Roll a pack table (whispered to the GM). */
+    rollTable: id => travel.rollTable(id),
+    /** Mark a place completed (progress tracks). */
+    setDone: async (query, done = true) => { const h = places.findPlace(query); return h ? places.setDone(h.page, done) : null; },
+    progress: () => defs().progress.map(tr => ({ id: tr.id, ...places.trackProgress(tr) }))
   };
   listenForClicks();
   trail.redrawSoon();
+  hud.refresh();
 });
 
 // Toolbar: the GM's console, and the party window for everyone (players: if the setting allows).
@@ -107,10 +122,13 @@ Hooks.on("getSceneControlButtons", controls => {
 // The map: notes shown on atlases, the road drawn, the windows told.
 Hooks.on("canvasReady", cv => {
   places.syncNotesToggle(cv?.scene ?? canvas.scene).catch(() => {});
+  hud.refresh();
   trail.redrawSoon();
   refreshWindows();
 });
 Hooks.on("canvasTearDown", () => trail.teardown());
+// The clock: Foundry's world time moved (travel, a rest, another module) → chip and windows follow.
+Hooks.on("updateWorldTime", () => { hud.refresh(); PartyWindow.instance?.refreshSoon(); });
 Hooks.on("refreshNote", note => places.styleNote(note));
 
 // A double-click on a place opens its card instead of the journal page.
@@ -122,9 +140,7 @@ Hooks.on("activateNote", note => {
 });
 
 // The Company: the GM's drops are recorded; players can't move it on an atlas.
-Hooks.on("updateToken", (doc, changed, options) => {
-  roadOps.onTokenMoved(doc, changed, options).catch(err => console.error(`${MODULE_ID} | road`, err));
-});
+Hooks.on("updateToken", (doc, changed, options) => { roadOps.onTokenMoved(doc, changed, options); });
 Hooks.on("preUpdateToken", (doc, changed) => roadOps.lockForPlayers(doc, changed));
 Hooks.on("preMoveToken", doc => roadOps.lockForPlayers(doc, { x: true }));
 

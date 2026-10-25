@@ -63,10 +63,11 @@ test("dynamic keys used with a variable exist for every value", () => {
     "Party.Tab.{s}": ["road", "purse", "notes"], "Console.Tab.{s}": ["setup", "places"],
     "Enricher.{s}": ["open", "move", "reveal", "rumour", "hide", "set", "pay"],
     "Page.{s}.Title": ["road", "purse", "notes"],
-    "Page.road.Col.{s}": ["n", "session", "day", "place", "how", "cost", "note"],
+    "Page.road.Col.{s}": ["n", "session", "day", "place", "how", "travel", "cost", "note"],
+    "Clock.Unit.{s}": ["minute", "hour", "day"],
     "Page.purse.Col.{s}": ["when", "session", "who", "amount", "why"],
     "Purse.Error.{s}": ["NoCompany", "NoAmount", "TooPoor", "PlayersOff", "NoGM", "NoReply"],
-    "Settings.{s}.Name": ["imageBase", "lockCompany", "snapRadius", "purseForPlayers", "playerButton", "textLanguage", "language", "showLabels"]
+    "Settings.{s}.Name": ["imageBase", "lockCompany", "snapRadius", "purseForPlayers", "playerButton", "textLanguage", "language", "showLabels", "travelPrompt", "useWorldTime", "showClock"]
   };
   for (const [pattern, values] of Object.entries(groups)) {
     for (const v of values) assert.ok(known.has(pattern.replace("{s}", v)), `missing key ${pattern.replace("{s}", v)}`);

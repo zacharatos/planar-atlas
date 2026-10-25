@@ -2,6 +2,20 @@
 
 All notable changes to this module. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.2.0]
+
+### Added
+- **The in-world clock.** Day, time and the named part of the day from the pack (e.g. «ζενίθ»). By default it *is* Foundry's world time, so effect durations and calendar modules move with it; the module only remembers when day 1 began. **Set** ("it is day 3, 10:00") moves that start, never Foundry's time. In the party window (everyone) with GM buttons: +10 min, +1 h, +8 h (Long Rest), +1 day, −1 h, Set. A **clock chip** on atlas maps (per-user setting). World setting *Use Foundry's world time* (off: the atlas keeps its own clock).
+- **Travel time.** Each atlas in the pack has a rule per way of travelling: a time to cross the whole map (scaled by the road's length, wrap-around included), a roll ("3d6 days"), or a fixed time. When the GM drops the party token, a **trip window** shows the estimate or the roll; the GM can change the way of travelling (re-estimated), the time, and whether to roll for encounters, or say **No time passes**. The clock moves on and the stop is stamped with the day, the time and the trip's length. World setting *Travel time*: ask / pass it without asking / off. **Undo** also takes the trip's time back.
+- **Encounters on the way.** Pack tables (inline rows with a formula, or the name of a world RollTable) for an atlas and for each area; ticked in the trip window, the destination area's table and the atlas's table are rolled and **whispered to the GM**. The place card's **Encounter** button rolls them any time.
+- **Progress tracks.** A pack track lists places and steps ("2 completed → 7th level"); the GM marks a place **Completed** on its card; the party window shows the track (dots, count, step reached, next step), and the GM gets a lasting notice when a step is reached. A track can be hidden from players.
+- The road page has a **Trip** column; stops in the party window show the trip's length.
+- API: `clock()`, `clockLabel()`, `advanceClock(seconds)`, `setClock(day, "hh:mm")`, `rollTable(id)`, `setDone(name, done)`, `progress()`.
+- Pack schema additions (still schema 1): `calendar.bands`, `tables`, `atlases[].travel`, `atlases[].encounters`, `areas[].table`, `progress`, a place's `done`. The example pack shows them all.
+
+### Changed
+- The party window's "next stop" fields keep the session and the way of travelling; the day and time now come from the clock.
+
 ## [0.1.0]
 
 First release.

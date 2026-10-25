@@ -58,7 +58,10 @@ export function defs() {
     sets: p.sets ?? {},
     atlases: Array.isArray(p.atlases) ? p.atlases : [],
     company: p.company ?? {},
-    pages: p.pages ?? {}
+    pages: p.pages ?? {},
+    calendar: p.calendar ?? {},
+    tables: p.tables ?? {},
+    progress: Array.isArray(p.progress) ? p.progress : []
   };
 }
 

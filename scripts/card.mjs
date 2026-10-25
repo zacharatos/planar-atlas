@@ -4,12 +4,13 @@
 import { MODULE_ID } from "./constants.mjs";
 import { t, warn, local, language } from "./i18n.mjs";
 import { setting } from "./settings.mjs";
-import { defs, road } from "./state.mjs";
-import { placeOfPage, placeName, savePlace, setStatus, deletePlace, noteOfPage } from "./places.mjs";
+import { defs, road, atlasDef } from "./state.mjs";
+import { placeOfPage, placeName, savePlace, setStatus, deletePlace, noteOfPage, setDone } from "./places.mjs";
+import { rollEncounters } from "./travel.mjs";
 import { moveCompanyTo } from "./road.mjs";
 import { change as purseChange } from "./purse.mjs";
 import { atlasName, sceneOfAtlas, pickImage } from "./atlas.mjs";
-import { escapeHTML as esc, localText, visitsOf, STATUSES, parseCoins, coinsText, fold } from "./util.mjs";
+import { escapeHTML as esc, localText, visitsOf, STATUSES, parseCoins, coinsText, fold, encounterTables } from "./util.mjs";
 
 /** A scene by exact name, else the first whose name contains it (accents and case ignored). */
 const sceneNamed = name => (name ? game.scenes.getName(name) ?? game.scenes.find(s => fold(s.name).includes(fold(name))) ?? null : null);
@@ -114,7 +115,8 @@ export class PlaceCard extends ApplicationV2 {
     </header>`;
     const body = `${img ? `<figure class="pa-figure"><img src="${esc(img)}" alt=""></figure>` : ""}
       ${text ? `<div class="pa-text">${esc(text).split(/\n+/).map(p => `<p>${p}</p>`).join("")}</div>` : `<p class="pa-hint">${esc(t("Card.NoText"))}</p>`}
-      ${visitText ? `<p class="pa-visits"><i class="fa-solid fa-shoe-prints"></i> ${esc(t("Card.Visits"))}: ${esc(visitText)}</p>` : ""}`;
+      ${visitText ? `<p class="pa-visits"><i class="fa-solid fa-shoe-prints"></i> ${esc(t("Card.Visits"))}: ${esc(visitText)}</p>` : ""}
+      ${pl.done ? `<p class="pa-done"><i class="fa-solid fa-circle-check"></i> ${esc(t("Card.Done"))}</p>` : ""}`;
     return `<div class="pa-card">${head}${body}${gm ? this.#gmPart(pl) : ""}</div>`;
   }
 
@@ -142,7 +144,9 @@ export class PlaceCard extends ApplicationV2 {
       scape ? btn("scape", "fa-music", t("Card.Scape"), tip(L.scape)) : "",
       battle ? btn("battle", "fa-chess-rook", t("Card.Battle"), tip(L.scene)) : "",
       L.prep ? btn("prep", "fa-book-open", t("Card.Prep"), tip(L.prep)) : "",
-      price ? btn("pay", "fa-coins", t("Card.Pay", { price: coinsText(price) })) : ""
+      price ? btn("pay", "fa-coins", t("Card.Pay", { price: coinsText(price) })) : "",
+      encounterTables(atlasDef(pl.atlas), pl.area).length ? btn("encounter", "fa-dice", t("Card.Encounter"), tip(t("Card.EncounterHint"))) : "",
+      btn("done", pl.done ? "fa-circle-check" : "fa-circle", t(pl.done ? "Card.Done" : "Card.MarkDone"), `${tip(t("Card.DoneHint"))} class="${pl.done ? "on" : ""}"`)
     ].join("");
     return `<section class="pa-gm">
       <div class="pa-statuses">${statusBtns}</div>
@@ -244,6 +248,8 @@ export class PlaceCard extends ApplicationV2 {
           if (price) await purseChange({ coins: price, dir: "out", why: placeName(pl, "el") });
           break;
         }
+        case "done": await setDone(page, !pl.done); break;
+        case "encounter": await rollEncounters(encounterTables(atlasDef(pl.atlas), pl.area), { where: placeName(pl) }); break;
         case "edit": this.#edit = true; this.render(); break;
         case "cancel": this.#edit = false; this.render(); break;
         case "pick-img": {

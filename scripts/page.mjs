@@ -9,6 +9,7 @@ import { roadMarkdown, purseMarkdown } from "./util.mjs";
 import { stopName, howName } from "./road.mjs";
 import { atlasName } from "./atlas.mjs";
 import { purse, purseLog } from "./purse.mjs";
+import * as clock from "./clock.mjs";
 
 const OWN = () => CONST.DOCUMENT_OWNERSHIP_LEVELS;
 const codexApi = () => { const m = game.modules.get("planar-codex"); return m?.active ? m.api : null; };
@@ -64,11 +65,11 @@ async function writePage(key, md, defaultOwnership, { gm }) {
 /* ---------------- the road ---------------- */
 
 export function roadMarkdownNow() {
-  const cols = Object.fromEntries(["n", "session", "day", "place", "how", "cost", "note"].map(c => [c, t(`Page.road.Col.${c}`)]));
+  const cols = Object.fromEntries(["n", "session", "day", "place", "how", "travel", "cost", "note"].map(c => [c, t(`Page.road.Col.${c}`)]));
   return roadMarkdown(road(), {
     title: nameOf("road"), intro: t("Page.road.Intro"), none: t("Page.road.None"),
     active: t("Page.road.Active"), archived: t("Page.road.Archived"), cols
-  }, { place: stopName, how: howName, atlas: atlasName });
+  }, { place: stopName, how: howName, atlas: atlasName, duration: clock.duration });
 }
 export const syncRoadPage = () => writePage("road", roadMarkdownNow(), OWN().NONE, { gm: true });
 

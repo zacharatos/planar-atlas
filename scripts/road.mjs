@@ -6,7 +6,9 @@ import { setting, setSetting } from "./settings.mjs";
 import { road, mutateRoad, company, isCompanyToken, isActiveGM, defs, stamp } from "./state.mjs";
 import { atlasIdOf, sceneOfAtlas, norm, px, atlasName } from "./atlas.mjs";
 import { placesOn, placeName, markVisited, placeOfPage } from "./places.mjs";
-import { nearest, addStop, removeStop, updateStop, archiveJourney, clearJourney, deleteJourney, lastStop, activeJourney, localText } from "./util.mjs";
+import { nearest, addStop, removeStop, updateStop, archiveJourney, clearJourney, deleteJourney, lastStop, activeJourney, localText, sameSpot } from "./util.mjs";
+import * as clock from "./clock.mjs";
+import { planTrip, rollEncounters } from "./travel.mjs";
 
 const SKIP = "planarAtlasSkip";
 
@@ -97,7 +99,7 @@ export async function placeCompany(scene = canvas.scene) {
 
 /* ---------------- recording stops ---------------- */
 
-/** The "next move" fields (session, day, time, how) the GM keeps in the party window. */
+/** The "next move" fields (session, how) the GM keeps in the party window. */
 export const nextMove = () => road().next;
 export const setNextMove = patch => mutateRoad(r => { Object.assign(r.next, patch); });
 
@@ -116,23 +118,54 @@ function stopAt(scene, center) {
       ...stamp(), atlas: atlasId, scene: scene.id, place: hit?.place.id ?? null,
       label: hit ? (localText(hit.place.name, "el") || localText(hit.place.name, "en")) : "",
       x: where.x, y: where.y,
-      session: n.session ?? "", day: n.day ?? "", time: n.time ?? "", how: n.how ?? "", note: "", cost: "", heroes
+      session: n.session ?? "", day: "", time: "", how: n.how ?? "", note: "", cost: "", heroes
     },
+    area: hit?.place.area ?? null,
     snapTo: hit ? { x: hit.x, y: hit.y } : null
   };
 }
 
-/** updateToken (every client; the active GM records). */
-export async function onTokenMoved(doc, changed, options) {
-  if (!isActiveGM() || options?.[SKIP] || !("x" in (changed ?? {}) || "y" in (changed ?? {}))) return;
-  if (!isCompanyToken(doc) || !atlasIdOf(doc.parent)) return;
+/** Stamp a stop with the clock (after the trip): the day, the time and the part of the day. */
+function stampClock(stop) {
+  const c = clock.read();
+  stop.t = clock.now();
+  stop.day = String(c.day);
+  stop.time = [c.time, c.band].filter(Boolean).join(" · ");
+  return stop;
+}
+
+/** updateToken (every client; the active GM records). Moves are handled one at a time. */
+let moving = Promise.resolve();
+export function onTokenMoved(doc, changed, options) {
+  if (!isActiveGM() || options?.[SKIP] || !("x" in (changed ?? {}) || "y" in (changed ?? {}))) return Promise.resolve();
+  if (!isCompanyToken(doc) || !atlasIdOf(doc.parent)) return Promise.resolve();
+  moving = moving.then(() => recordMove(doc)).catch(err => console.error(`${MODULE_ID} | road`, err));
+  return moving;
+}
+
+async function recordMove(doc) {
   const scene = doc.parent;
-  const { stop, snapTo } = stopAt(scene, centerOf(doc));
+  const atlasId = atlasIdOf(scene);
+  const { stop, snapTo, area } = stopAt(scene, centerOf(doc));
   if (snapTo) await moveTokenCenter(doc, snapTo);
+  const prev = lastStop(road());
+  if (sameSpot(prev, stop)) return;
+  // The trip: how long it took (asked, estimated or rolled), and what happened on the way.
+  const trip = prev ? await planTrip({ from: prev, to: { ...stop, area }, atlasId, how: stop.how, toName: stop.label }) : null;
+  if (trip) {
+    stop.how = trip.how;
+    if (trip.seconds) {
+      await clock.advance(trip.seconds);
+      stop.travel = { seconds: trip.seconds, formula: trip.formula || "", total: trip.total ?? null };
+    }
+  }
+  stampClock(stop);
   const added = await mutateRoad(r => addStop(r, stop));
   if (!added) return;
   if (stop.place) await markVisited(stop.place);
   info("Notify.Stopped", { name: stop.label || t("Road.APoint"), n: activeJourney(road())?.stops.length ?? 0 });
+  if (trip?.seconds) info("Notify.TimePassed", { time: clock.duration(trip.seconds), clock: clock.label() });
+  if (trip?.encounters) await rollEncounters(trip.tables, { where: stop.label || atlasName(atlasId) });
 }
 
 /** preUpdateToken / preMoveToken on players' clients: the Company moves only when the GM moves it. */
@@ -171,6 +204,10 @@ export async function undoLast() {
   const last = lastStop(road());
   if (!last) return info("Notify.NothingToUndo");
   await mutateRoad(r => removeStop(r, last.id));
+  if (last.travel?.seconds) {
+    await clock.advance(-last.travel.seconds);
+    info("Notify.TimeTakenBack", { time: clock.duration(last.travel.seconds), clock: clock.label() });
+  }
   const prev = lastStop(road());
   if (prev && prev.atlas === last.atlas) {
     const scene = sceneOfAtlas(prev.atlas);

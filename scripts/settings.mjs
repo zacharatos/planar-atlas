@@ -18,10 +18,16 @@ export function registerSettings({ onChange } = {}) {
   hidden("pack", Object, null, () => onChange?.("pack"));
   hidden("company", String, "", () => onChange?.("company"));
   hidden("pages", Object, {});
+  hidden("clockEpoch", Number, 0, () => onChange?.("clock"));
+  hidden("clockSeconds", Number, 0, () => onChange?.("clock"));
 
   world("imageBase", String, "");
   world("lockCompany", Boolean, true);
   world("snapRadius", Number, 110, { range: { min: 20, max: 400, step: 10 } });
+  world("travelPrompt", String, "ask", {
+    choices: { ask: "PLANAR_ATLAS.Settings.travelPrompt.Ask", auto: "PLANAR_ATLAS.Settings.travelPrompt.Auto", off: "PLANAR_ATLAS.Settings.travelPrompt.Off" }
+  });
+  world("useWorldTime", Boolean, true, { onChange: () => onChange?.("clock") });
   world("purseForPlayers", Boolean, true, { onChange: () => onChange?.("purse") });
   world("playerButton", Boolean, true, { onChange: () => ui.controls?.render?.() });
   world("textLanguage", String, "auto", {
@@ -34,6 +40,10 @@ export function registerSettings({ onChange } = {}) {
     scope: "client", config: true, type: String, default: "world",
     choices: { world: "PLANAR_ATLAS.Settings.language.World", en: "English", el: "Ελληνικά" },
     onChange: () => onChange?.("language")
+  });
+  game.settings.register(MODULE_ID, "showClock", {
+    name: "PLANAR_ATLAS.Settings.showClock.Name", hint: "PLANAR_ATLAS.Settings.showClock.Hint",
+    scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("clock")
   });
   game.settings.register(MODULE_ID, "showLabels", {
     name: "PLANAR_ATLAS.Settings.showLabels.Name", hint: "PLANAR_ATLAS.Settings.showLabels.Hint",

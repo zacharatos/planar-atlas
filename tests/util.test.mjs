@@ -8,7 +8,9 @@ import {
   parseCoins, spendCoins, addCoins, coinValue, coinsText, diffCoins, cleanCoins,
   emptyRoad, normalizeRoad, addStop, removeStop, updateStop, archiveJourney, clearJourney, deleteJourney, activeJourney, lastStop,
   visitsOf, sessionOrder, sessionAlpha, sameSpot,
-  validatePack, placeData, playerLabel, exportPack, parseAtlasArgs, roadMarkdown, purseMarkdown
+  validatePack, placeData, playerLabel, exportPack, parseAtlasArgs, roadMarkdown, purseMarkdown,
+  clockParts, hhmm, parseHHMM, epochFor, bandAt, durationParts,
+  routeLength, travelRule, travelEstimate, rolledSeconds, tableRow, encounterTables, progressOf, stepsCrossed
 } from "../scripts/util.mjs";
 
 /* ---------------- text ---------------- */
@@ -263,16 +265,110 @@ test("parseAtlasArgs", () => {
 
 test("road and purse Markdown", () => {
   const r = emptyRoad();
-  addStop(r, stop("a", { place: "square", day: "1", time: "ζενίθ", how: "foot", note: "a | pipe" }));
+  addStop(r, stop("a", { place: "square", day: "1", time: "ζενίθ", how: "foot", note: "a | pipe", travel: { seconds: 5400 } }));
   const md = roadMarkdown(r, {
     title: "Road", intro: "intro", none: "none", active: "Now", archived: "Journey",
-    cols: { n: "#", session: "S", day: "D", place: "P", how: "H", cost: "C", note: "N" }
-  }, { place: s => s.place, how: h => h, atlas: a => a.toUpperCase() });
+    cols: { n: "#", session: "S", day: "D", place: "P", how: "H", travel: "T", cost: "C", note: "N" }
+  }, { place: s => s.place, how: h => h, atlas: a => a.toUpperCase(), duration: s => `${s / 60} min` });
   assert.match(md, /^---\ntype: log/);
-  assert.match(md, /\| 1 \| S03 \| 1 · ζενίθ \| square \(SIGIL\) \| foot \|  \| a \\\| pipe \|/);
+  assert.match(md, /\| 1 \| S03 \| 1 · ζενίθ \| square \(SIGIL\) \| foot \| 90 min \|  \| a \\\| pipe \|/);
   const pm = purseMarkdown({ gp: 7 }, [{ date: "2026-10-25T10:00:00Z", session: "S03", who: "Nanouk", delta: { gp: -3 }, why: "Parisa" }],
     { title: "Purse", intro: "i", now: "Now", none: "none", cols: { when: "W", session: "S", who: "Who", amount: "A", why: "Y" } });
   assert.match(pm, /visibility: players/);
   assert.match(pm, /\*\*Now:\*\* 7 gp/);
   assert.match(pm, /\| 2026-10-25 \| S03 \| Nanouk \| −3 gp \| Parisa \|/);
+});
+
+/* ---------------- the clock ---------------- */
+
+test("clock parts from seconds and an epoch", () => {
+  assert.deepEqual(clockParts(0), { day: 1, hour: 0, minute: 0, secondsOfDay: 0 });
+  assert.deepEqual(clockParts(86400 * 2 + 3600 * 14 + 60 * 20), { day: 3, hour: 14, minute: 20, secondsOfDay: 51600 });
+  const e = epochFor(1_000_000, 3, 10 * 3600);
+  const p = clockParts(1_000_000, e);
+  assert.equal(p.day, 3);
+  assert.equal(hhmm(p), "10:00");
+  assert.equal(clockParts(1_000_000 + 7200, e).hour, 12, "the clock runs on from the epoch");
+});
+
+test("parseHHMM", () => {
+  assert.equal(parseHHMM("14:20"), 51600);
+  assert.equal(parseHHMM("9"), 32400);
+  assert.equal(parseHHMM("7.05"), 25500);
+  assert.equal(parseHHMM("25:00"), null);
+  assert.equal(parseHHMM("noon"), null);
+});
+
+test("bandAt: the latest band started; before the first, the last one", () => {
+  const bands = [{ from: "11:00", name: "peak" }, { from: "03:00", name: "morning" }, { from: "21:00", name: "night" }, { from: "14:00", name: "afternoon" }];
+  assert.equal(bandAt(bands, parseHHMM("12:00")).name, "peak");
+  assert.equal(bandAt(bands, parseHHMM("03:00")).name, "morning");
+  assert.equal(bandAt(bands, parseHHMM("01:00")).name, "night");
+  assert.equal(bandAt([], 0), null);
+});
+
+test("durationParts", () => {
+  assert.deepEqual(durationParts(86400 * 11 + 3600 * 2 + 600), { days: 11, hours: 2, minutes: 10 });
+  assert.deepEqual(durationParts(-5), { days: 0, hours: 0, minutes: 0 });
+});
+
+/* ---------------- travel ---------------- */
+
+test("routeLength measures in map widths, aspect-corrected, through wraps", () => {
+  assert.equal(routeLength({ x: 0, y: 0.2 }, { x: 0.5, y: 0.2 }), 0.5);
+  assert.equal(routeLength({ x: 0.1, y: 0.1 }, { x: 0.1, y: 0.4 }, {}, 0.5), 0.15);
+  const wrapped = routeLength({ x: 0.95, y: 0.25 }, { x: 0.05, y: 0.75 }, SIGIL, 0.7);
+  assert.ok(wrapped < 0.2, `through the edge is short (${wrapped})`);
+});
+
+test("travel rules: per map, rolled, fixed, default, none", () => {
+  const travel = {
+    foot: { per: "map", amount: 4, unit: "hour" },
+    castle: { roll: "3d6", unit: "day" },
+    portal: { fixed: 1, unit: "minute" },
+    default: { per: "map", amount: 6, unit: "hour" }
+  };
+  assert.deepEqual(travelEstimate(travelRule(travel, "foot"), 0.5), { kind: "map", seconds: 7200, formula: "", unit: "hour" });
+  assert.equal(travelEstimate(travelRule(travel, "foot"), 0.013).seconds, 300, "rounded to 5 minutes, never 0");
+  assert.deepEqual(travelEstimate(travelRule(travel, "castle"), 0.3), { kind: "roll", seconds: 0, formula: "3d6", unit: "day" });
+  assert.equal(travelEstimate(travelRule(travel, "portal")).seconds, 60);
+  assert.equal(travelEstimate(travelRule(travel, "chair"), 1).seconds, 21600, "a way without a rule uses default");
+  assert.equal(travelEstimate(null).kind, "none");
+  assert.equal(travelRule(null, "foot"), null);
+  assert.equal(rolledSeconds(11, "day"), 950400);
+});
+
+/* ---------------- tables and progress ---------------- */
+
+test("tableRow and the tables of a trip", () => {
+  const table = { formula: "1d6", rows: [{ range: [1, 2], text: "a" }, { range: [3, 3], text: "b" }, { range: 4, text: "c" }] };
+  assert.equal(tableRow(table, 2).text, "a");
+  assert.equal(tableRow(table, 3).text, "b");
+  assert.equal(tableRow(table, 4).text, "c");
+  assert.equal(tableRow(table, 6), null);
+  const atlas = { areas: [{ id: "hive", table: "hive-enc" }], encounters: { table: "city" } };
+  assert.deepEqual(encounterTables(atlas, "hive"), ["hive-enc", "city"]);
+  assert.deepEqual(encounterTables(atlas, null), ["city"]);
+  assert.deepEqual(encounterTables({}, "x"), []);
+});
+
+test("progress tracks: steps reached and crossed", () => {
+  const track = { id: "gt", places: ["a", "b", "c", "d", "e", "f", "g"], steps: [{ count: 4, text: "8th" }, { count: 2, text: "7th" }, { count: 6, text: "9th" }] };
+  const done = new Set(["a", "c", "e"]);
+  const p = progressOf(track, id => done.has(id));
+  assert.equal(p.count, 3);
+  assert.equal(p.total, 7);
+  assert.deepEqual(p.reached.map(s => s.text), ["7th"]);
+  assert.equal(p.next.text, "8th");
+  assert.deepEqual(stepsCrossed(track, 3, 4).map(s => s.text), ["8th"]);
+  assert.deepEqual(stepsCrossed(track, 4, 3), []);
+});
+
+test("validatePack checks tables, travel rules and progress", () => {
+  const errors = validatePack({ schema: 1, id: "x",
+    tables: { ok: { formula: "1d4", rows: [] }, bad: {} },
+    atlases: [{ id: "a", areas: [{ id: "w", table: "nope" }], encounters: { table: "ok" }, travel: { foot: { per: "map", amount: 1, unit: "parsec" }, odd: {} } }],
+    places: [{ id: "p", atlas: "a", name: "P" }],
+    progress: [{ id: "t", places: ["p", "ghost"] }] }).join("\n");
+  for (const bit of ["table bad", "unknown table \"nope\"", "unknown unit", "travel \"odd\"", "unknown place \"ghost\""]) assert.ok(errors.includes(bit), bit);
 });

@@ -421,6 +421,18 @@ export function validatePack(p) {
       }
     }
   }
+  const tableIds = new Set(Object.keys(p.tables ?? {}));
+  for (const [id, tb] of Object.entries(p.tables ?? {})) {
+    if (!tb?.rollTable && !(tb?.formula && Array.isArray(tb.rows))) errors.push(`table ${id}: needs formula + rows, or rollTable`);
+  }
+  for (const a of atlases) {
+    for (const area of a?.areas ?? []) if (area.table && !tableIds.has(area.table)) errors.push(`atlas ${a.id}: area ${area.id} uses unknown table "${area.table}"`);
+    if (a?.encounters?.table && !tableIds.has(a.encounters.table)) errors.push(`atlas ${a.id}: unknown encounter table "${a.encounters.table}"`);
+    for (const [how, rule] of Object.entries(a?.travel ?? {})) {
+      if (!rule || typeof rule !== "object" || !(rule.roll || rule.per === "map" || rule.fixed != null)) errors.push(`atlas ${a.id}: travel "${how}" needs roll, per: "map" or fixed`);
+      else if (rule.unit && !UNIT_SECONDS[rule.unit]) errors.push(`atlas ${a.id}: travel "${how}" has an unknown unit "${rule.unit}"`);
+    }
+  }
   const placeIds = new Set();
   for (const pl of Array.isArray(p.places) ? p.places : []) {
     if (!pl?.id) { errors.push("a place has no id"); continue; }
@@ -432,6 +444,10 @@ export function validatePack(p) {
       if (pl[k] != null && !(Number.isFinite(pl[k]) && pl[k] >= 0 && pl[k] <= 1)) errors.push(`place ${pl.id}: ${k} must be between 0 and 1, or null`);
     }
     if (!localText(pl.name)) errors.push(`place ${pl.id}: no name`);
+  }
+  for (const tr of Array.isArray(p.progress) ? p.progress : []) {
+    if (!tr?.id) errors.push("a progress track has no id");
+    for (const id of tr?.places ?? []) if (!placeIds.has(id)) errors.push(`progress ${tr?.id}: unknown place "${id}"`);
   }
   return errors;
 }
@@ -452,6 +468,7 @@ export function placeData(pl = {}) {
     area: pl.area ?? "",
     sets: Array.isArray(pl.sets) ? [...pl.sets] : [],
     price: pl.price ?? "",
+    done: !!pl.done,
     links: { theater: "", theaterScene: "", scape: "", scene: "", faction: "", prep: "", ...(pl.links ?? {}) }
   };
 }
@@ -514,8 +531,8 @@ const cell = v => String(v ?? "").replace(/\|/g, "\\|").replace(/\n+/g, " ").tri
 
 /**
  * The road as Markdown: the active journey, then the archived ones.
- * labels: { title, intro, none, active, archived, cols: {n, session, day, place, how, cost, note} }
- * names: { place(stop) → text, how(id) → text, atlas(id) → text }
+ * labels: { title, intro, none, active, archived, cols: {n, session, day, place, how, travel, cost, note} }
+ * names: { place(stop) → text, how(id) → text, atlas(id) → text, duration(seconds) → text }
  */
 export function roadMarkdown(road, labels, names) {
   const fm = `---\ntype: log\ntags: [planar-atlas, road]\n---\n`;
@@ -523,10 +540,11 @@ export function roadMarkdown(road, labels, names) {
   const table = j => {
     if (!j.stops.length) return [`*${labels.none}*`, ""];
     const c = labels.cols;
-    const rows = [`| ${c.n} | ${c.session} | ${c.day} | ${c.place} | ${c.how} | ${c.cost} | ${c.note} |`, "|---|---|---|---|---|---|---|"];
+    const rows = [`| ${c.n} | ${c.session} | ${c.day} | ${c.place} | ${c.how} | ${c.travel} | ${c.cost} | ${c.note} |`, "|---|---|---|---|---|---|---|---|"];
     j.stops.forEach((s, i) => {
       const day = [s.day, s.time].filter(Boolean).join(" · ");
-      rows.push(`| ${i + 1} | ${cell(s.session)} | ${cell(day)} | ${cell(names.place(s))} (${cell(names.atlas(s.atlas))}) | ${cell(names.how(s.how))} | ${cell(s.cost)} | ${cell(s.note)} |`);
+      const trip = s.travel?.seconds ? (names.duration?.(s.travel.seconds) ?? "") : "";
+      rows.push(`| ${i + 1} | ${cell(s.session)} | ${cell(day)} | ${cell(names.place(s))} (${cell(names.atlas(s.atlas))}) | ${cell(names.how(s.how))} | ${cell(trip)} | ${cell(s.cost)} | ${cell(s.note)} |`);
     });
     return [...rows, ""];
   };
@@ -555,3 +573,145 @@ export function purseMarkdown(purse, log, labels) {
   }
   return out.join("\n") + "\n";
 }
+
+/* ------------------------------------------------------------------ */
+/* The in-world clock                                                  */
+/* ------------------------------------------------------------------ */
+// The clock is a number of seconds. Day 1 starts at the "epoch" (a number of seconds on the same clock, so the
+// GM can say "it is now day 3, 10:00" without changing Foundry's own world time).
+
+export const UNIT_SECONDS = { minute: 60, hour: 3600, day: 86400, week: 604800 };
+export const DAY = 86400;
+
+/** { day (from 1), hour, minute, secondsOfDay } for a clock value. */
+export function clockParts(seconds, epoch = 0) {
+  const t = Math.floor(Number(seconds) || 0) - Math.floor(Number(epoch) || 0);
+  const day = Math.floor(t / DAY);
+  const sod = t - day * DAY;
+  return { day: day + 1, hour: Math.floor(sod / 3600), minute: Math.floor((sod % 3600) / 60), secondsOfDay: sod };
+}
+
+const pad = n => String(n).padStart(2, "0");
+export const hhmm = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
+
+/** "14:20" or "14.20" or "9" → seconds of the day (null if not a time). */
+export function parseHHMM(text) {
+  const m = String(text ?? "").trim().match(/^(\d{1,2})(?:[:.](\d{1,2}))?$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2] ?? 0);
+  if (h > 23 || min > 59) return null;
+  return h * 3600 + min * 60;
+}
+
+/** The epoch that makes `seconds` read as day `day` at `timeOfDay` (seconds). */
+export function epochFor(seconds, day, timeOfDay) {
+  return Math.floor(Number(seconds) || 0) - ((Math.max(1, Math.floor(Number(day) || 1)) - 1) * DAY + Math.floor(Number(timeOfDay) || 0));
+}
+
+/**
+ * The named part of the day ("ζενίθ") from the pack's bands: [{from: "11:00", name}], sorted or not.
+ * The band with the latest start at or before the time wins; before the first, the last band of the day.
+ */
+export function bandAt(bands, secondsOfDay) {
+  const list = (bands ?? []).map(b => ({ ...b, at: parseHHMM(b.from) })).filter(b => b.at !== null).sort((a, b) => a.at - b.at);
+  if (!list.length) return null;
+  let hit = list[list.length - 1];
+  for (const b of list) if (b.at <= secondsOfDay) hit = b;
+  return hit;
+}
+
+/** "3 h 20 min", "4 days", "10 min" (English units; the interface localizes the words). */
+export function durationParts(seconds) {
+  let s = Math.max(0, Math.round(Number(seconds) || 0));
+  const days = Math.floor(s / DAY); s -= days * DAY;
+  const hours = Math.floor(s / 3600); s -= hours * 3600;
+  const minutes = Math.round(s / 60);
+  return { days, hours, minutes };
+}
+
+/* ------------------------------------------------------------------ */
+/* Travel time                                                         */
+/* ------------------------------------------------------------------ */
+// A pack gives each atlas a rule per way of travelling:
+//   { "per": "map", "amount": 4, "unit": "hour" }   time to cross the whole map's width; scaled by the road's length
+//   { "roll": "3d6", "unit": "day" }               rolled each trip (the Outlands: "3d6 days between gate-towns")
+//   { "fixed": 1, "unit": "minute" }               always the same (a portal)
+// and "default" for ways without their own rule.
+
+/** Length of the road from a to b in map widths (0–1 points, the map's height/width ratio, wrap-around). */
+export function routeLength(a, b, geo = {}, aspect = 1) {
+  const r = route(a, b, geo);
+  let len = 0;
+  for (const [p, q] of r.segments) len += Math.hypot(q.x - p.x, (q.y - p.y) * aspect);
+  return Math.round(len * 10000) / 10000;
+}
+
+/** The rule for a way of travelling on an atlas (or null). */
+export function travelRule(travel, how) {
+  if (!travel || typeof travel !== "object") return null;
+  const r = travel[how] ?? travel.default ?? null;
+  return r && typeof r === "object" ? r : null;
+}
+
+/**
+ * What a trip costs in time before any dice: { kind: "map"|"roll"|"fixed"|"none", seconds, formula, unit }.
+ * For a roll, `seconds` is 0 and `formula` + `unit` tell the caller what to roll.
+ */
+export function travelEstimate(rule, length = 0) {
+  if (!rule) return { kind: "none", seconds: 0, formula: "", unit: "" };
+  const unit = UNIT_SECONDS[rule.unit] ? rule.unit : "hour";
+  if (rule.roll) return { kind: "roll", seconds: 0, formula: String(rule.roll), unit };
+  if (rule.per === "map") {
+    const s = Math.max(Number(rule.min ?? 0) * UNIT_SECONDS.minute, Number(rule.amount || 0) * UNIT_SECONDS[unit] * Math.max(0, Number(length) || 0));
+    const step = Number(rule.round ?? 5) * 60; // rounded to 5 minutes by default
+    return { kind: "map", seconds: step > 0 ? Math.max(step, Math.round(s / step) * step) : Math.round(s), formula: "", unit };
+  }
+  if (rule.fixed != null) return { kind: "fixed", seconds: Math.round(Number(rule.fixed || 0) * UNIT_SECONDS[unit]), formula: "", unit };
+  return { kind: "none", seconds: 0, formula: "", unit };
+}
+
+/** Seconds for a rolled total in a unit. */
+export const rolledSeconds = (total, unit) => Math.max(0, Math.round(Number(total) || 0)) * (UNIT_SECONDS[unit] ?? UNIT_SECONDS.hour);
+
+/* ------------------------------------------------------------------ */
+/* Encounter tables                                                    */
+/* ------------------------------------------------------------------ */
+// A pack table: { name, formula: "1d8", rows: [{ range: [1, 1], text }], ref } (or { rollTable: "World table name" }).
+
+/** The row of an inline table for a rolled total (null if none). */
+export function tableRow(table, total) {
+  const n = Number(total);
+  return (table?.rows ?? []).find(r => {
+    const [lo, hi] = Array.isArray(r.range) ? r.range : [r.range, r.range];
+    return n >= Number(lo) && n <= Number(hi ?? lo);
+  }) ?? null;
+}
+
+/** Which tables to roll for a trip: the destination area's, then the atlas's (ids, no duplicates). */
+export function encounterTables(atlas, areaId) {
+  const out = [];
+  const area = (atlas?.areas ?? []).find(a => a.id === areaId);
+  if (area?.table) out.push(area.table);
+  if (atlas?.encounters?.table && !out.includes(atlas.encounters.table)) out.push(atlas.encounters.table);
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Progress tracks                                                     */
+/* ------------------------------------------------------------------ */
+// A pack track: { id, name, places: [ids], steps: [{ count: 2, text }], players: true }.
+
+/** How far a track is: { done: [ids], count, total, reached: [steps], next: step|null }. */
+export function progressOf(track, isDone) {
+  const ids = Array.isArray(track?.places) ? track.places : [];
+  const done = ids.filter(id => isDone(id));
+  const steps = [...(track?.steps ?? [])].sort((a, b) => a.count - b.count);
+  return {
+    done, count: done.length, total: ids.length,
+    reached: steps.filter(s => done.length >= s.count),
+    next: steps.find(s => done.length < s.count) ?? null
+  };
+}
+
+/** Steps newly reached when the count goes from `before` to `after`. */
+export const stepsCrossed = (track, before, after) => (track?.steps ?? []).filter(s => before < s.count && after >= s.count);
