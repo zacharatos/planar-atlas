@@ -1,0 +1,38 @@
+{
+  "id": "planar-atlas",
+  "title": "Planar Atlas",
+  "description": "Living maps for your campaign. A big map becomes an atlas scene with places as pins, each with a card (what the players know, what only the GM knows), shown to players only once they know about it. The party is a token you drag: every stop is recorded with the session and the in-world day, and drawn on the map as a numbered road until you archive it. Maps whose edges join (a city drawn in strips) are routed around. A party window for everyone: the road, a common purse with its history, and the party's own notes.",
+  "version": "0.1.0",
+  "authors": [
+    { "name": "rkeytech" }
+  ],
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14"
+  },
+  "relationships": {
+    "systems": [
+      { "id": "dnd5e", "type": "system", "compatibility": { "minimum": "5.0.0" } }
+    ],
+    "recommends": [
+      { "id": "planar-codex", "type": "module", "reason": "The road, purse and notes pages become Codex notes that export to your vault." },
+      { "id": "planar-theater", "type": "module", "reason": "A place's card shows its Theater place over the map with one click." },
+      { "id": "planar-soundboard", "type": "module", "reason": "A place's card starts its soundscape." }
+    ]
+  },
+  "esmodules": ["scripts/main.mjs"],
+  "socket": true,
+  "styles": ["styles/atlas.css"],
+  "languages": [
+    { "lang": "en", "name": "English", "path": "lang/en.json" },
+    { "lang": "el", "name": "Ελληνικά", "path": "lang/el.json" }
+  ],
+  "url": "https://github.com/zacharatos/planar-atlas",
+  "manifest": "https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json",
+  "download": "https://github.com/zacharatos/planar-atlas/releases/download/v0.1.0/module.zip",
+  "bugs": "https://github.com/zacharatos/planar-atlas/issues",
+  "readme": "https://github.com/zacharatos/planar-atlas#readme",
+  "changelog": "https://github.com/zacharatos/planar-atlas/blob/main/CHANGELOG.md",
+  "license": "https://github.com/zacharatos/planar-atlas/blob/main/LICENSE",
+  "flags": {}
+}

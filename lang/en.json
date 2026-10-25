@@ -1,0 +1,325 @@
+{
+  "PLANAR_ATLAS": {
+    "ToolConsole": "Planar Atlas (GM)",
+    "ToolParty": "The party: road, purse, notes",
+    "Keybinding": {
+      "Party": "Open the party window",
+      "PartyHint": "The road, the common purse and the party's notes.",
+      "Console": "Open the Planar Atlas console (GM)"
+    },
+    "Settings": {
+      "imageBase": {
+        "Name": "Image folder",
+        "Hint": "Where place pictures named in the pack live on the server, e.g. worlds/my-world/visuals. A picture with a full path ignores it."
+      },
+      "lockCompany": {
+        "Name": "Only the GM moves the party marker",
+        "Hint": "Players own the party actor (for its purse and inventory), so they could drag its token. On an atlas, only the GM can move it."
+      },
+      "snapRadius": {
+        "Name": "Snap distance (pixels)",
+        "Hint": "A party token dropped this close to a place stops at that place."
+      },
+      "purseForPlayers": {
+        "Name": "Players use the common purse",
+        "Hint": "Players can put coins in and pay from the party's purse in the party window. Every change is written down with their name."
+      },
+      "playerButton": {
+        "Name": "Party button for players",
+        "Hint": "A button in the players' token controls opens the party window."
+      },
+      "textLanguage": {
+        "Name": "Default language",
+        "Hint": "The language of the module's windows for everyone who hasn't chosen one.",
+        "Auto": "Same as Foundry"
+      },
+      "language": {
+        "Name": "My language for Planar Atlas",
+        "Hint": "Only for you, without changing Foundry's language.",
+        "World": "The world's default"
+      },
+      "showLabels": {
+        "Name": "Area names on the atlas",
+        "Hint": "Draw the names of wards and regions on atlas maps."
+      }
+    },
+    "Status": {
+      "hidden": {
+        "Name": "Hidden",
+        "Hint": "The players don't know about it: no pin on their map."
+      },
+      "rumoured": {
+        "Name": "Rumoured",
+        "Hint": "They've heard of it: a \"?\" pin and the rumour text."
+      },
+      "known": {
+        "Name": "Known",
+        "Hint": "They know what and where it is."
+      },
+      "visited": {
+        "Name": "Visited",
+        "Hint": "They have been there (set when the party stops there)."
+      }
+    },
+    "Journal": {
+      "Prefix": "Atlas —"
+    },
+    "Company": {
+      "DefaultName": "The Company"
+    },
+    "Place": {
+      "NewName": "New place",
+      "DeleteTitle": "Delete a place",
+      "DeleteAsk": "Delete «{name}» from the atlas? Its pin and its page go; the road keeps the visits by name. No file is deleted."
+    },
+    "Card": {
+      "Title": "Place",
+      "Unknown": "Somewhere you've heard about",
+      "RumourDefault": "You only know it's there; nothing more.",
+      "NoText": "Nothing more is known.",
+      "Gone": "This place no longer exists.",
+      "Day": "day {day}",
+      "Visits": "You were here",
+      "Sets": "Sets",
+      "Faction": "Faction",
+      "Move": "Move the party here",
+      "Pan": "Show it on the map",
+      "Theater": "Theater",
+      "TheaterHint": "Show the Theater place «{name}» over the map",
+      "TheaterOff": "Take the Theater picture down",
+      "Scape": "Sound",
+      "Battle": "Battle map",
+      "Prep": "Prep",
+      "Pay": "The party pays {price}",
+      "Edit": "Edit",
+      "Delete": "Delete this place"
+    },
+    "Form": {
+      "NameEl": "Name (Greek)",
+      "NameEn": "Name (English, GM only)",
+      "Category": "Kind of place",
+      "TextEl": "What the players know",
+      "RumourEl": "The rumour",
+      "RumourHint": "What a player reads while the place is only rumoured.",
+      "Gm": "GM notes (secrets)",
+      "Img": "Picture",
+      "ImgHint": "A full path, or a path inside the image folder (module settings).",
+      "Ref": "Book reference",
+      "Price": "Price",
+      "PriceHint": "e.g. 2gp: the card gets a button that pays it from the purse.",
+      "Sets": "Reveal sets (comma separated)",
+      "Links": "Links",
+      "Theater": "Theater place",
+      "TheaterHint": "Its name in Planar Theater (part of the name is enough).",
+      "TheaterScene": "Theater scene (optional)",
+      "Scape": "Soundboard soundscape",
+      "Scene": "Battle map scene",
+      "Prep": "Prep note",
+      "PrepHint": "A note's name, optionally with #heading.",
+      "Faction": "Faction (Planar Factions id)",
+      "Save": "Save",
+      "Cancel": "Cancel"
+    },
+    "Party": {
+      "Title": "The party",
+      "Language": "Switch the language of this window (only for you)",
+      "Tab": {
+        "road": "Road",
+        "purse": "Purse",
+        "notes": "Notes"
+      }
+    },
+    "Road": {
+      "NextLabel": "Stamped on the next stop",
+      "Session": "Session",
+      "SessionHint": "The session label, e.g. S03.",
+      "Day": "Day",
+      "DayHint": "The in-world day.",
+      "Time": "Time",
+      "How": "How",
+      "PlaceCompany": "Party token here",
+      "PlaceCompanyHint": "Put the party's token on this atlas, where the road left it.",
+      "Undo": "Undo",
+      "UndoHint": "Take back the last stop and move the party back.",
+      "HidePlayers": "Hide from players",
+      "HidePlayersHint": "Players don't see the road on the map or in this window.",
+      "HideAll": "Hide on the map",
+      "ArchiveHint": "Close this journey under a name; a new one starts where the party stands.",
+      "ArchiveTitle": "Archive the journey",
+      "ArchiveAsk": "A name for this journey (e.g. «Ch. 2 — Sigil»):",
+      "Archive": "Archive",
+      "ClearTitle": "Clear the road",
+      "ClearAsk": "Remove every stop of the current journey? Archived journeys stay.",
+      "HiddenForPlayers": "The GM keeps the road hidden for now.",
+      "Now": "Now: {place} ({atlas})",
+      "NoStops": "No stops yet.",
+      "HowToStart": "Put the party token on an atlas and drag it: every drop is a stop. Dropped near a place, it stops at that place.",
+      "NoSession": "No session label",
+      "NotePlaceholder": "A note on this stop…",
+      "DeleteStop": "Delete this stop",
+      "Archived": "Archived journeys",
+      "Stops": "{n} stops",
+      "DeleteJourney": "Delete this journey",
+      "APoint": "Somewhere on the map"
+    },
+    "Purse": {
+      "NoCompany": "The GM hasn't set up the party yet.",
+      "NoCompanyGM": "There is no party actor yet. Create it: a dnd5e group with the heroes as members.",
+      "AmountPlaceholder": "e.g. 3gp 5sp",
+      "AmountHint": "Coins: pp, gp, ep, sp, cp. A plain number is gold. Enter pays; Shift+Enter puts in.",
+      "WhyPlaceholder": "What for?",
+      "In": "Put in",
+      "InHint": "Add coins to the purse",
+      "Out": "Pay",
+      "OutHint": "Pay from the purse (change is made for you)",
+      "Total": "In the purse: {total}",
+      "Sheet": "The party's sheet",
+      "SheetHint": "dnd5e's group sheet: members, shared items, awards.",
+      "History": "History",
+      "Empty": "Nothing has gone in or out yet.",
+      "ShowAll": "Show all {n}",
+      "Undo": "Undo this line",
+      "UndoOf": "Undo: {why}",
+      "SheetChange": "changed on the sheet",
+      "Done": "Done.",
+      "Error": {
+        "NoCompany": "There is no party actor yet.",
+        "NoAmount": "Write an amount, e.g. 3gp or 2gp 5sp.",
+        "TooPoor": "Not enough in the purse (it holds {have}).",
+        "PlayersOff": "The GM keeps the purse.",
+        "NoGM": "The GM needs to be online for the purse.",
+        "NoReply": "The GM's Foundry didn't answer; try again."
+      }
+    },
+    "Notes": {
+      "Intro": "A notebook for the whole party: what you found, what you promised, who you owe, where you want to go. Everyone can write in it.",
+      "Open": "Open the party's notes",
+      "Hint": "The GM reads it too."
+    },
+    "Console": {
+      "Title": "Planar Atlas",
+      "OpenParty": "Open the party window",
+      "Tab": {
+        "setup": "Setup",
+        "places": "Places"
+      },
+      "Pack": "Campaign pack",
+      "PackLoaded": "{name}: {atlases} atlases, {places} places.",
+      "NoPack": "No pack yet. A pack holds the atlases (maps), the places on them and their texts.",
+      "Import": "Import pack",
+      "Export": "Save pack",
+      "ExportHint": "Download the pack with the places as they are now (positions you dragged, edits, new places), to keep it in your files.",
+      "Company": "The party actor",
+      "CompanyIs": "{name}, members: {members}",
+      "CompanySheet": "Sheet",
+      "AddHeroes": "Add the heroes",
+      "AddHeroesHint": "Add every player character to the group.",
+      "NoCompany": "No party actor yet.",
+      "CreateCompany": "Create the party actor",
+      "Atlases": "Atlases",
+      "NoAtlases": "The pack has no atlases.",
+      "SceneIs": "Scene: {name}",
+      "NoSceneYet": "no scene yet",
+      "PlaceCount": "{n} places on the map ({pack} in the pack)",
+      "Parked": "{n} parked",
+      "ParkedHint": "Parked at the bottom of the map: drag it to where it belongs.",
+      "NoNote": "No pin on the map.",
+      "View": "View this atlas",
+      "CreateScene": "Create scene",
+      "CreateSceneHint": "Pick the map image; a scene is made at its size, without grid, vision or fog.",
+      "BindHint": "Use the current scene ({scene}) for this atlas",
+      "SetUp": "Set up places",
+      "SetUpHint": "Create the pack's places on this atlas (and refresh their texts). Statuses and positions in this world are kept.",
+      "ListPlaces": "List the places",
+      "Sets": "Reveal sets",
+      "SetsHint": "One click makes every place of the set known to the players.",
+      "Pages": "Journal pages",
+      "SyncPages": "Update the pages",
+      "SyncPagesHint": "Rewrite the road and purse pages now (they update by themselves a moment after each change).",
+      "NoScenes": "No atlas has a scene yet (Setup tab).",
+      "Search": "Search…",
+      "NewPlace": "New place",
+      "NewPlaceHint": "A new place in the middle of the view; drag it where it belongs.",
+      "NoPlaces": "{name} has no places yet."
+    },
+    "Enricher": {
+      "open": "Open the place's card",
+      "move": "Move the party here",
+      "reveal": "Make it known to the players",
+      "rumour": "Let the players hear of it",
+      "hide": "Hide it from the players",
+      "set": "Reveal the whole set",
+      "pay": "Pay from the party's purse"
+    },
+    "Page": {
+      "road": {
+        "Title": "The party's road",
+        "Intro": "Every stop of the party, written by Planar Atlas. Don't edit by hand: it is rewritten after each move.",
+        "None": "No stops.",
+        "Active": "Current journey",
+        "Archived": "Journey",
+        "Col": {
+          "n": "#",
+          "session": "Session",
+          "day": "Day",
+          "place": "Place",
+          "how": "How",
+          "cost": "Cost",
+          "note": "Note"
+        }
+      },
+      "purse": {
+        "Title": "The party's purse",
+        "Intro": "The common purse and every change to it, written by Planar Atlas.",
+        "Now": "Now",
+        "None": "No changes yet.",
+        "Col": {
+          "when": "When",
+          "session": "Session",
+          "who": "Who",
+          "amount": "Amount",
+          "why": "Why"
+        }
+      },
+      "notes": {
+        "Title": "The party's notes",
+        "Starter": "Write here what the party wants to remember."
+      }
+    },
+    "Notify": {
+      "OnlyGM": "Only the GM can do that.",
+      "Failed": "Something went wrong (details in the console, F12).",
+      "Bound": "«{scene}» is now the map of {atlas}.",
+      "NoAtlas": "The pack has no atlas «{id}».",
+      "PickMap": "Pick the map image for {name} ({file}).",
+      "MapUnreadable": "Couldn't read the image {src}.",
+      "BackgroundFailed": "The scene was made, but its background couldn't be set: set it in the scene's settings.",
+      "SceneCreated": "Scene «{name}» created.",
+      "NoScene": "{name} has no scene yet.",
+      "NotOnAtlas": "Open an atlas scene first.",
+      "PlacesSetUp": "{name}: {created} new places, {updated} refreshed, {pinned} pins added ({parked} parked at the bottom: drag them into place).",
+      "RevealedParked": "«{name}» is revealed but still parked at the bottom of the map.",
+      "SetRevealed": "{name}: {n} places revealed.",
+      "Exported": "Pack saved ({n} places).",
+      "PackNotJson": "That file isn't JSON.",
+      "PackInvalid": "The pack has {n} problems; the first: {first}",
+      "PackImported": "Pack «{name}» imported. Now set up each atlas.",
+      "CompanyFailed": "The party actor couldn't be created (is dnd5e the system?).",
+      "CompanyCreated": "{name} created with {n} heroes.",
+      "PrimaryPartyManual": "Set it as the primary party from its sheet if you use dnd5e's awards.",
+      "NoCompany": "There is no party actor yet.",
+      "NoCompanyToken": "The party has no token on «{name}»: open that atlas first.",
+      "NotPinned": "«{name}» has no pin on its atlas.",
+      "Stopped": "Stop {n}: {name}.",
+      "Locked": "Only the GM moves the party on the atlas.",
+      "NothingToUndo": "No stop to undo.",
+      "Undone": "Last stop taken back.",
+      "Archived": "Journey archived: {name}.",
+      "NoBattleScene": "No scene called «{name}».",
+      "NoPrep": "No note called «{name}».",
+      "NoPlace": "No place called «{name}».",
+      "NoNotes": "The party's notes haven't been made yet: the GM opens them once.",
+      "PagesSynced": "Pages updated."
+    }
+  }
+}

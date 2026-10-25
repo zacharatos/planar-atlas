@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "id": "example",
+  "name": { "en": "Example: a ring city", "el": "Παράδειγμα: μια πόλη-δαχτυλίδι" },
+  "company": { "name": { "en": "The Company", "el": "Η Συντροφιά" } },
+  "pages": {},
+  "categories": {},
+  "hows": {
+    "foot": { "name": { "en": "On foot", "el": "Με τα πόδια" }, "icon": "fa-person-walking" },
+    "carriage": { "name": { "en": "Hired carriage", "el": "Νοικιασμένη άμαξα" }, "icon": "fa-horse" },
+    "portal": { "name": { "en": "Through a portal", "el": "Από πύλη" }, "icon": "fa-dungeon" }
+  },
+  "times": [{ "en": "morning", "el": "πρωί" }, { "en": "noon", "el": "μεσημέρι" }, { "en": "night", "el": "νύχτα" }],
+  "sets": {
+    "guide": { "name": { "en": "What the guide knows", "el": "Ό,τι ξέρει ο οδηγός" } }
+  },
+  "atlases": [
+    {
+      "id": "city",
+      "name": { "en": "The Ring City", "el": "Η Πόλη-Δαχτυλίδι" },
+      "map": "city-map.webp",
+      "clock": "hours",
+      "zones": [
+        { "id": "north", "x0": 0, "y0": 0, "x1": 1, "y1": 0.49 },
+        { "id": "south", "x0": 0, "y0": 0.51, "x1": 1, "y1": 1 }
+      ],
+      "links": [
+        { "a": { "zone": "north", "edge": "right" }, "b": { "zone": "south", "edge": "left" } },
+        { "a": { "zone": "south", "edge": "right" }, "b": { "zone": "north", "edge": "left" } }
+      ],
+      "areas": [
+        { "id": "docks", "name": { "en": "The Docks", "el": "Το Λιμάνι" }, "x": 0.2, "y": 0.2 },
+        { "id": "hill", "name": { "en": "The Hill", "el": "Ο Λόφος" }, "x": 0.7, "y": 0.75 }
+      ]
+    }
+  ],
+  "places": [
+    {
+      "id": "tavern", "atlas": "city", "cat": "tavern", "status": "known", "area": "docks",
+      "name": { "en": "The Salty Lantern", "el": "Το Αλμυρό Φανάρι" },
+      "text": { "en": "A loud tavern on the quay. Rooms for 5 sp a night.", "el": "Μια φασαριόζικη ταβέρνα στην προκυμαία. Δωμάτια 5 sp τη βραδιά." },
+      "gm": "The owner fences stolen maps.", "price": "5sp", "x": 0.18, "y": 0.28, "sets": ["guide"],
+      "links": { "theater": "Salty Lantern", "scape": "Tavern" }
+    },
+    {
+      "id": "temple", "atlas": "city", "cat": "temple", "status": "hidden", "area": "hill",
+      "name": { "en": "Temple of the Closed Door", "el": "Ο Ναός της Κλειστής Πόρτας" },
+      "rumour": { "en": "Sailors say a temple on the hill has a door nobody may open.", "el": "Οι ναύτες λένε πως ένας ναός στον λόφο έχει μια πόρτα που δεν ανοίγει κανείς." },
+      "text": { "en": "A white temple whose great door has no handle.", "el": "Ένας λευκός ναός· η μεγάλη του πόρτα δεν έχει χερούλι." },
+      "x": 0.72, "y": 0.7, "sets": ["guide"]
+    },
+    {
+      "id": "gate", "atlas": "city", "cat": "portal", "status": "hidden",
+      "name": { "en": "The Rusted Arch", "el": "Η Σκουριασμένη Αψίδα" },
+      "x": null, "y": null
+    }
+  ]
+}
