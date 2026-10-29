@@ -118,6 +118,7 @@ Two browsers: the GM and a player who owns a character. dnd5e 6.x.
 - In a journal (GM): `@Atlas[The Salty Lantern]`, `@Atlas[The Salty Lantern | move]{Go}`, `@Atlas[reveal: Temple]`, `@Atlas[set: guide]`, `@Atlas[pay: 5sp | a room]`: buttons that work. A player who can read the journal sees plain text (never a hidden place's name looked up from the atlas).
 - Pages: after a move, «The party's road» (GM-only) is rewritten within a few seconds; after a payment, «The party's purse» (players can read). Notes tab → **Open the party's notes**: the GM's first click creates the page; players can then edit it. With Planar Codex active they are Codex notes.
 - EN/ΕΛ button: the window switches language for that user only; pin labels follow.
+- On an atlas, the ring around the party pulses smoothly (grows and fades every ~2 s). Settings → *Animate the party marker* off: the ring stays, still; on again: it pulses. A redraw (move the party) leaves only one ring.
 
 ## Changing things
 

@@ -715,3 +715,9 @@ export function progressOf(track, isDone) {
 
 /** Steps newly reached when the count goes from `before` to `after`. */
 export const stepsCrossed = (track, before, after) => (track?.steps ?? []).filter(s => before < s.count && after >= s.count);
+
+/** The party marker's pulse at time t (seconds): a ring that grows from 0.6× to 1.8× and fades out, every 1.8 s. */
+export function pulseFrame(t, period = 1.8) {
+  const k = (((Number(t) || 0) % period) + period) % period / period;
+  return { scale: 0.6 + k * 1.2, alpha: 0.9 * (1 - k) };
+}

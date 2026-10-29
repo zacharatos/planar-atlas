@@ -372,3 +372,13 @@ test("validatePack checks tables, travel rules and progress", () => {
     progress: [{ id: "t", places: ["p", "ghost"] }] }).join("\n");
   for (const bit of ["table bad", "unknown table \"nope\"", "unknown unit", "travel \"odd\"", "unknown place \"ghost\""]) assert.ok(errors.includes(bit), bit);
 });
+
+test("the party marker's pulse grows and fades, and repeats", async () => {
+  const { pulseFrame } = await import("../scripts/util.mjs");
+  assert.deepEqual(pulseFrame(0), { scale: 0.6, alpha: 0.9 });
+  const mid = pulseFrame(0.9);
+  assert.ok(Math.abs(mid.scale - 1.2) < 1e-9 && Math.abs(mid.alpha - 0.45) < 1e-9);
+  assert.deepEqual(pulseFrame(1.8), pulseFrame(0));
+  assert.deepEqual(pulseFrame(NaN), pulseFrame(0));
+  assert.ok(pulseFrame(-0.5).scale >= 0.6);
+});

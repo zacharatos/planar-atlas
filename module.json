@@ -12,7 +12,7 @@
   },
   "relationships": {
     "systems": [
-      { "id": "dnd5e", "type": "system", "compatibility": { "minimum": "5.0.0" } }
+      { "id": "dnd5e", "type": "system", "compatibility": { "minimum": "6.0.0" } }
     ],
     "recommends": [
       { "id": "planar-codex", "type": "module", "reason": "The road, purse and notes pages become Codex notes that export to your vault." },

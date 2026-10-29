@@ -8,7 +8,7 @@ import { local } from "./i18n.mjs";
 import { road, atlasDef } from "./state.mjs";
 import { atlasIdOf, rectOf, geometryOf } from "./atlas.mjs";
 import { placesOn } from "./places.mjs";
-import { activeJourney, route, fromNorm, sessionOrder, sessionAlpha } from "./util.mjs";
+import { activeJourney, route, fromNorm, sessionOrder, sessionAlpha, pulseFrame } from "./util.mjs";
 
 let layer = null;      // PIXI.Container on the canvas
 let pulse = null;      // { g, fn }
@@ -151,17 +151,25 @@ export function draw() {
   const last = stops.at(-1);
   if (last?.atlas === atlasId) {
     const p = fromNorm(rect, last);
+    // Drawn once and animated by scale and alpha: rebuilding the circle's geometry 60 times a second
+    // cost every player's browser on an atlas more than the rest of the road put together.
     const ring = new PIXI.Graphics();
+    ring.lineStyle({ width: unit * 1.2, color: 0xffe9a8, alpha: 1 });
+    ring.drawCircle(0, 0, unit * 9);
+    ring.position.set(p.x, p.y);
     layer.addChild(ring);
-    const base = unit * 9;
+    if (!setting("animateMarker")) {
+      ring.alpha = 0.9;
+      return;
+    }
     let tt = 0;
     const fn = delta => {
       tt += (Number(delta?.deltaTime ?? delta) || 1) / 60;
-      const k = (tt % 1.8) / 1.8;
-      ring.clear();
-      ring.lineStyle({ width: unit * 1.2, color: 0xffe9a8, alpha: 0.9 * (1 - k) });
-      ring.drawCircle(p.x, p.y, base * (0.6 + k * 1.2));
+      const { scale, alpha } = pulseFrame(tt);
+      ring.scale.set(scale);
+      ring.alpha = alpha;
     };
+    fn(0);
     canvas.app.ticker.add(fn);
     pulse = { g: ring, fn };
   }

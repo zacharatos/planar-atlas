@@ -43,7 +43,7 @@ await import("../scripts/main.mjs");
 test("registers settings, keybindings and the journal button on init", () => {
   for (const fn of hooks.once.init) fn();
   assert.deepEqual(registered.settings.sort(), [
-    "planar-atlas.clockEpoch", "planar-atlas.clockSeconds", "planar-atlas.company", "planar-atlas.imageBase", "planar-atlas.language", "planar-atlas.lockCompany", "planar-atlas.pack",
+    "planar-atlas.animateMarker", "planar-atlas.clockEpoch", "planar-atlas.clockSeconds", "planar-atlas.company", "planar-atlas.imageBase", "planar-atlas.language", "planar-atlas.lockCompany", "planar-atlas.pack",
     "planar-atlas.pages", "planar-atlas.playerButton", "planar-atlas.purseForPlayers", "planar-atlas.road",
     "planar-atlas.showClock", "planar-atlas.showLabels", "planar-atlas.snapRadius", "planar-atlas.textLanguage", "planar-atlas.travelPrompt", "planar-atlas.useWorldTime"
   ]);

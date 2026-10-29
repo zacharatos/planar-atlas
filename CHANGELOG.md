@@ -2,6 +2,16 @@
 
 All notable changes to this module. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.2.1]
+
+### Changed
+- **Lighter party marker.** The pulsing ring around the party is drawn once and animated by size and transparency, instead of being redrawn 60 times a second in every browser that shows an atlas.
+- dnd5e 6.0.0 or later is required (the version the module is tested on; it said 5.0.0).
+- CI and release workflows use `actions/checkout@v5` and `actions/setup-node@v5`; CI runs with read-only repository permissions.
+
+### Added
+- **Animate the party marker** (setting, per user): turn the pulse off on a slow computer; the ring stays, still.
+
 ## [0.2.0]
 
 ### Added

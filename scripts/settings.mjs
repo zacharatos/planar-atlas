@@ -45,6 +45,10 @@ export function registerSettings({ onChange } = {}) {
     name: "PLANAR_ATLAS.Settings.showClock.Name", hint: "PLANAR_ATLAS.Settings.showClock.Hint",
     scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("clock")
   });
+  game.settings.register(MODULE_ID, "animateMarker", {
+    name: "PLANAR_ATLAS.Settings.animateMarker.Name", hint: "PLANAR_ATLAS.Settings.animateMarker.Hint",
+    scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("draw")
+  });
   game.settings.register(MODULE_ID, "showLabels", {
     name: "PLANAR_ATLAS.Settings.showLabels.Name", hint: "PLANAR_ATLAS.Settings.showLabels.Hint",
     scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("draw")

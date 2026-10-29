@@ -38,6 +38,10 @@
         "Hint": "Only for you, without changing Foundry's language.",
         "World": "The world's default"
       },
+      "animateMarker": {
+        "Name": "Animate the party marker",
+        "Hint": "A soft pulse around the party on atlas maps. Turn it off on a slow computer: the ring stays, still."
+      },
       "showLabels": {
         "Name": "Area names on the atlas",
         "Hint": "Draw the names of wards and regions on atlas maps."
