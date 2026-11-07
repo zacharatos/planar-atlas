@@ -185,7 +185,8 @@
       "Stops": "{n} stops",
       "DeleteJourney": "Delete this journey",
       "APoint": "Somewhere on the map",
-      "HowHint": "Written on the next stop and used for its travel time."
+      "HowHint": "Written on the next stop and used for its travel time.",
+      "Near": "near {name}"
     },
     "Purse": {
       "NoCompany": "The GM hasn't set up the party yet.",
@@ -350,7 +351,10 @@
       "TimeTakenBack": "{time} taken back: {clock}.",
       "NoRollTable": "No roll table called «{name}» in this world.",
       "StepReached": "{track}: {count} completed → {text}",
-      "BadTime": "«{time}» isn't a time (use hh:mm)."
+      "BadTime": "«{time}» isn't a time (use hh:mm).",
+      "AlreadyThere": "The party is already at {name}: no new stop.",
+      "NotActiveGM": "This browser isn't the active GM: the road is recorded in the active GM's browser only. Use that one (or close the other GM tab).",
+      "StoppedVisited": "Stop {n}: {name} (visited) · {clock}."
     },
     "Clock": {
       "Day": "Day {day}",

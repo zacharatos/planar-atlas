@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./constants.mjs";
 import { registerSettings, setting } from "./settings.mjs";
-import { loadDictionaries } from "./i18n.mjs";
+import { loadDictionaries, warn } from "./i18n.mjs";
 import { road, company, defs, isActiveGM } from "./state.mjs";
 import * as places from "./places.mjs";
 import * as roadOps from "./road.mjs";
@@ -68,7 +68,7 @@ Hooks.once("ready", async () => {
     setStatus: async (query, status) => { const h = places.findPlace(query); return h ? places.setStatus(h.page, status) : null; },
     revealSet: id => places.revealSet(id),
     /** Move the party to a place (the stop is recorded). */
-    move: async query => { const h = places.findPlace(query); return h ? roadOps.moveCompanyTo(h.page) : null; },
+    move: async query => { const h = places.findPlace(query); if (!h) { warn("Notify.NoPlace", { name: query }); return null; } return roadOps.moveCompanyTo(h.page); },
     undo: () => roadOps.undoLast(),
     archive: name => roadOps.archive(name),
     setNext: patch => roadOps.setNextMove(patch),

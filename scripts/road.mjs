@@ -103,12 +103,17 @@ export async function placeCompany(scene = canvas.scene) {
 export const nextMove = () => road().next;
 export const setNextMove = patch => mutateRoad(r => { Object.assign(r.next, patch); });
 
-/** The stop for a point on an atlas: snapped to the nearest place if there is one close enough. */
-function stopAt(scene, center) {
+/**
+ * The stop for a point on an atlas: snapped to the nearest place if there is one close enough.
+ * `forced` ({x, y, page, place}) is a place the GM chose (Move from a card or a button): no snapping, no guessing.
+ * A stop away from every place is named after the closest one («near X»), so the road and the Prompter never show a blank.
+ */
+function stopAt(scene, center, forced = null) {
   const atlasId = atlasIdOf(scene);
   const radius = Number(setting("snapRadius")) || 110;
   const spots = placesOn(atlasId).filter(p => p.note).map(p => ({ x: p.note.x, y: p.note.y, page: p.page, place: p.place }));
-  const hit = nearest(spots, center.x, center.y, radius);
+  const hit = forced ?? nearest(spots, center.x, center.y, radius);
+  const close = hit ? null : nearest(spots, center.x, center.y, Infinity);
   const where = hit ? norm(scene, hit.x, hit.y) : norm(scene, center.x, center.y);
   const n = road().next;
   const members = company()?.system?.members;
@@ -116,7 +121,9 @@ function stopAt(scene, center) {
   return {
     stop: {
       ...stamp(), atlas: atlasId, scene: scene.id, place: hit?.place.id ?? null,
-      label: hit ? (localText(hit.place.name, "el") || localText(hit.place.name, "en")) : "",
+      label: hit ? (localText(hit.place.name, "el") || localText(hit.place.name, "en"))
+        : close ? t("Road.Near", { name: localText(close.place.name, "el") || localText(close.place.name, "en") }) : "",
+      near: close?.place.id ?? null,
       x: where.x, y: where.y,
       session: n.session ?? "", day: "", time: "", how: n.how ?? "", note: "", cost: "", heroes
     },
@@ -143,13 +150,14 @@ export function onTokenMoved(doc, changed, options) {
   return moving;
 }
 
-async function recordMove(doc) {
+async function recordMove(doc, forced = null) {
   const scene = doc.parent;
   const atlasId = atlasIdOf(scene);
-  const { stop, snapTo, area } = stopAt(scene, centerOf(doc));
+  const { stop, snapTo, area } = stopAt(scene, centerOf(doc), forced);
   if (snapTo) await moveTokenCenter(doc, snapTo);
   const prev = lastStop(road());
-  if (sameSpot(prev, stop)) return;
+  // Same place as the last stop: nothing to record, but say so (a silent Move looked broken at the table).
+  if (sameSpot(prev, stop)) return info("Notify.AlreadyThere", { name: stop.label || t("Road.APoint") });
   // The trip: how long it took (asked, estimated or rolled), and what happened on the way.
   const trip = prev ? await planTrip({ from: prev, to: { ...stop, area }, atlasId, how: stop.how, toName: stop.label }) : null;
   if (trip) {
@@ -161,9 +169,9 @@ async function recordMove(doc) {
   }
   stampClock(stop);
   const added = await mutateRoad(r => addStop(r, stop));
-  if (!added) return;
+  if (!added) return info("Notify.AlreadyThere", { name: stop.label || t("Road.APoint") });
   if (stop.place) await markVisited(stop.place);
-  info("Notify.Stopped", { name: stop.label || t("Road.APoint"), n: activeJourney(road())?.stops.length ?? 0 });
+  info(stop.place ? "Notify.StoppedVisited" : "Notify.Stopped", { name: stop.label || t("Road.APoint"), n: activeJourney(road())?.stops.length ?? 0, clock: clock.label() });
   if (trip?.seconds) info("Notify.TimePassed", { time: clock.duration(trip.seconds), clock: clock.label() });
   if (trip?.encounters) await rollEncounters(trip.tables, { where: stop.label || atlasName(atlasId) });
 }
@@ -176,9 +184,14 @@ export function lockForPlayers(doc, changed) {
   return false;
 }
 
-/** Move the party to a place (from a card or a journal button): the token goes there and the stop is recorded. */
+/**
+ * Move the party to a place (from a card or a journal button): the stop is recorded for that place directly
+ * (no snapping, no guessing from where the token lands), then the token is moved there. Every outcome ends in one toast.
+ */
 export async function moveCompanyTo(page) {
   if (!game.user.isGM) return null;
+  // Only the active GM's browser records the road: say so instead of moving a token that nobody records.
+  if (!isActiveGM()) return warn("Notify.NotActiveGM");
   const pl = placeOfPage(page);
   const scene = sceneOfAtlas(pl?.atlas);
   if (!scene) return warn("Notify.NoScene", { name: atlasName(pl?.atlas) });
@@ -190,9 +203,13 @@ export async function moveCompanyTo(page) {
     token = await placeCompany(scene);
   }
   if (!token) return null;
-  // A real move (not skipped), so onTokenMoved records it and snaps it.
-  const c = centerOf(token);
-  await token.update({ x: token.x + Math.round(note.x - c.x), y: token.y + Math.round(note.y - c.y) });
+  // The token moves with the skip flag (onTokenMoved ignores it); the stop is recorded here, for this place.
+  const spot = { x: note.x, y: note.y, page, place: pl };
+  moving = moving.then(async () => {
+    await moveTokenCenter(token, spot);
+    await recordMove(token, spot);
+  }).catch(err => { console.error(`${MODULE_ID} | road`, err); warn("Notify.Failed"); });
+  await moving;
   return token;
 }
 
@@ -243,6 +260,9 @@ export async function clearRoad() {
 export function stopName(stop) {
   if (stop.place) {
     for (const p of placesOn(stop.atlas)) if (p.place.id === stop.place) return placeName(p.place);
+  }
+  if (stop.near) {
+    for (const p of placesOn(stop.atlas)) if (p.place.id === stop.near) return t("Road.Near", { name: placeName(p.place) });
   }
   return stop.label || t("Road.APoint");
 }

@@ -2,6 +2,18 @@
 
 All notable changes to this module. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Fixes from Session 03. Version number to be set at release.
+
+### Fixed
+- **Move the party here** (place card, `@Atlas[… | move]` button, API `move`) records the stop for that place itself, then moves the token: no more silent moves that left no stop, didn't mark the place visited and never reached the Prompter (the token landing off the pin, or no token update at all).
+- Every move ends in one message: "Stop N: <place> (visited) · <clock>", "already there", or why not (no pin, no party token, unknown place, not the active GM).
+- A stop away from every place is named after the closest one ("near «X»") instead of being blank, in the road, the party window and for Planar Codex.
+
+### Added
+- Stops carry `near` (the closest place's id) when they aren't at a place.
+
 ## [0.2.1]
 
 ### Changed
