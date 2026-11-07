@@ -52,5 +52,5 @@ Don't write a commit message unless he asks for one. If he does, offer it as a s
 - Data: places live on journal pages (`flags.planar-atlas.place`) linked from map notes; the road, the pack, the party actor's id and the page uuids are hidden world settings that only the active GM writes (`state.mjs`); the purse history is a flag on the party actor. If you change a data shape, bump its schema (`ROAD_SCHEMA`, `PACK_SCHEMA` in `util.mjs`) and migrate.
 - Players never write world data: their purse changes go to the active GM over the socket (`purse.mjs`).
 - Read "Changing things" in `docs/DEVELOPMENT.md` before touching notes, tokens or the canvas.
-- Version numbers in `module.json`, `package.json` and `CHANGELOG.md`: only change them when asked.
+- **Versions:** change them only when asked (or when the task is a release). A version change updates every reference in the same change: `module.json` (`version` and the `download` URL's `vX.Y.Z`), `package.json` and `package-lock.json` (`version`), a `## [X.Y.Z]` section at the top of `CHANGELOG.md`, and any version a README or doc names. Follow semver: a new feature bumps the minor, a fix the patch.
 - Never add campaign content, publisher text, art or audio to the repo. Campaign content is a private pack the GM imports.
