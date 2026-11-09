@@ -214,7 +214,52 @@
         "el": "Η Σκουριασμένη Αψίδα"
       },
       "x": null,
-      "y": null
+      "y": null,
+      "portal": {
+        "kind": "book",
+        "to": "temple",
+        "key": {
+          "en": "A rusted nail",
+          "el": "Ένα σκουριασμένο καρφί"
+        },
+        "keyItem": "rusted nail",
+        "quirk": {
+          "en": "One-way",
+          "el": "Μονόδρομη"
+        },
+        "oneWay": true
+      }
+    },
+    {
+      "id": "cellar-door",
+      "atlas": "city",
+      "cat": "portal",
+      "status": "hidden",
+      "area": "docks",
+      "name": {
+        "en": "The cellar door",
+        "el": "Η πόρτα του κελαριού"
+      },
+      "text": {
+        "en": "A low door behind the barrels that smells of the sea.",
+        "el": "Μια χαμηλή πόρτα πίσω από τα βαρέλια που μυρίζει θάλασσα."
+      },
+      "gm": "Opens onto a smugglers' cove on another world.",
+      "x": null,
+      "y": null,
+      "portal": {
+        "kind": "story",
+        "at": "tavern",
+        "toText": {
+          "en": "A smugglers' cove",
+          "el": "Ένας κόλπος λαθρεμπόρων"
+        },
+        "key": {
+          "en": "A sailor's knot",
+          "el": "Ένας ναυτικός κόμπος"
+        },
+        "destKnown": false
+      }
     }
   ],
   "calendar": {

@@ -45,7 +45,7 @@ test("registers settings, keybindings and the journal button on init", () => {
   assert.deepEqual(registered.settings.sort(), [
     "planar-atlas.animateMarker", "planar-atlas.clockEpoch", "planar-atlas.clockSeconds", "planar-atlas.company", "planar-atlas.imageBase", "planar-atlas.language", "planar-atlas.lockCompany", "planar-atlas.pack",
     "planar-atlas.pages", "planar-atlas.playerButton", "planar-atlas.purseForPlayers", "planar-atlas.road",
-    "planar-atlas.showClock", "planar-atlas.showLabels", "planar-atlas.snapRadius", "planar-atlas.textLanguage", "planar-atlas.travelPrompt", "planar-atlas.useWorldTime"
+    "planar-atlas.showClock", "planar-atlas.showLabels", "planar-atlas.showPortalLinks", "planar-atlas.snapRadius", "planar-atlas.textLanguage", "planar-atlas.travelPrompt", "planar-atlas.useWorldTime"
   ]);
   assert.deepEqual(registered.keys.sort(), ["planar-atlas.console", "planar-atlas.party"]);
   assert.equal(CONFIG.TextEditor.enrichers.length, 1, "@Atlas enricher registered");
@@ -58,11 +58,14 @@ test("exposes an api and listens on the socket on ready", async () => {
   assert.deepEqual(registered.sockets, ["module.planar-atlas"]);
   for (const fn of ["open", "openConsole", "openParty", "places", "findPlace", "showCard", "setStatus", "revealSet", "move", "undo",
     "archive", "setNext", "road", "pay", "purse", "purseLog", "company", "createCompany", "placeCompany", "setupPlaces", "exportPack",
-    "defs", "syncPages", "redraw", "clock", "clockLabel", "advanceClock", "setClock", "rollTable", "setDone", "progress"]) assert.equal(typeof api[fn], "function", fn);
+    "defs", "syncPages", "redraw", "clock", "clockLabel", "advanceClock", "setClock", "rollTable", "setDone", "progress",
+    "portals", "travelThrough", "createPortal"]) assert.equal(typeof api[fn], "function", fn);
   assert.equal(api.road().journeys.length, 1, "an empty road is readable");
   assert.equal(api.findPlace("anything"), null);
   assert.equal(api.clock().day, 1, "a fresh world is day 1");
   assert.deepEqual(api.progress(), []);
+  assert.deepEqual(api.portals(), [], "no portals in an empty world");
+  assert.equal(api.portals("nowhere"), null);
 });
 
 test("toolbar: console for the GM, party window for everyone", () => {
@@ -70,6 +73,7 @@ test("toolbar: console for the GM, party window for everyone", () => {
   hooks.on.getSceneControlButtons[0](gmControls);
   assert.ok(gmControls.tokens.tools["planar-atlas-console"]);
   assert.ok(gmControls.tokens.tools["planar-atlas-party"]);
+  assert.ok(gmControls.tokens.tools["planar-atlas-portal"], "the GM can place a portal with a click");
   game.user.isGM = false;
   const playerControls = { tokens: { tools: {} } };
   hooks.on.getSceneControlButtons[0](playerControls);

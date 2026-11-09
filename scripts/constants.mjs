@@ -34,6 +34,16 @@ export const DEFAULT_CATEGORIES = {
   hb: { name: { en: "Our own (homebrew)", el: "Δικό μας (homebrew)" }, icon: "icons/svg/hanging-sign.svg", color: "#9ad1ff" }
 };
 
+/**
+ * Portal kinds (a place's `portal.kind`): the pin of a portal is tinted by its kind, so the GM sees at a glance
+ * which doors come from the books, which are ours for the story, and which were made up at the table.
+ */
+export const PORTAL_KIND_STYLE = {
+  book: { color: "#7fd6e8", icon: "fa-book" },
+  story: { color: "#d6a8ff", icon: "fa-feather-pointed" },
+  hb: { color: "#ffcf6e", icon: "fa-hammer" }
+};
+
 /** Built-in ways of travelling. */
 export const DEFAULT_HOWS = {
   foot: { name: { en: "On foot", el: "Με τα πόδια" }, icon: "fa-person-walking" },

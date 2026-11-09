@@ -445,6 +445,23 @@ export function validatePack(p) {
     }
     if (!localText(pl.name)) errors.push(`place ${pl.id}: no name`);
   }
+  // Portals: "at" is a place on the same atlas (the portal stands inside it), "to" any place on any atlas.
+  const byId = new Map((Array.isArray(p.places) ? p.places : []).filter(pl => pl?.id).map(pl => [pl.id, pl]));
+  for (const pl of byId.values()) {
+    const po = pl.portal;
+    if (po == null) continue;
+    if (typeof po !== "object") { errors.push(`place ${pl.id}: portal must be an object`); continue; }
+    if (po.kind && !PORTAL_KINDS.includes(po.kind)) errors.push(`place ${pl.id}: unknown portal kind "${po.kind}"`);
+    if (po.at) {
+      const host = byId.get(po.at);
+      if (!host) errors.push(`place ${pl.id}: portal at unknown place "${po.at}"`);
+      else if (host.atlas !== pl.atlas) errors.push(`place ${pl.id}: portal at "${po.at}", which is on another atlas`);
+      else if (host.portal?.at) errors.push(`place ${pl.id}: portal at "${po.at}", which is itself inside a place`);
+      if (po.at === pl.id) errors.push(`place ${pl.id}: a portal can't stand inside itself`);
+    }
+    if (po.to && !byId.has(po.to)) errors.push(`place ${pl.id}: portal to unknown place "${po.to}"`);
+    if (po.to && po.to === pl.id) errors.push(`place ${pl.id}: a portal can't lead to itself`);
+  }
   for (const tr of Array.isArray(p.progress) ? p.progress : []) {
     if (!tr?.id) errors.push("a progress track has no id");
     for (const id of tr?.places ?? []) if (!placeIds.has(id)) errors.push(`progress ${tr?.id}: unknown place "${id}"`);
@@ -469,8 +486,115 @@ export function placeData(pl = {}) {
     sets: Array.isArray(pl.sets) ? [...pl.sets] : [],
     price: pl.price ?? "",
     done: !!pl.done,
-    links: { theater: "", theaterScene: "", scape: "", scene: "", faction: "", prep: "", ...(pl.links ?? {}) }
+    links: { theater: "", theaterScene: "", scape: "", scene: "", faction: "", prep: "", ...(pl.links ?? {}) },
+    portal: portalData(pl.portal)
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Portals                                                             */
+/* ------------------------------------------------------------------ */
+// A place is a portal when it has a `portal`: { kind, at, to, toText, key, keyItem, quirk, oneWay, destKnown, keyKnown }.
+//   kind      "book" (from the published books), "story" (ours, planned for the story), "hb" (made up at the table)
+//   at        the place the portal stands inside (same atlas). With no position of its own it has no pin: it shows
+//             on the host's card and as a mark on the host's pin.
+//   to        the place it leads to (any atlas), or "" with `toText` for somewhere not on our maps ("Ysgard").
+//   key       what opens it (text); keyItem: an item name to look for in the heroes' inventories.
+//   destKnown / keyKnown: whether players are told where it leads / what opens it once they know the portal.
+
+export const PORTAL_KINDS = ["book", "story", "hb"];
+
+/** The portal fields, with defaults (null: not a portal). */
+export function portalData(po) {
+  if (!po || typeof po !== "object") return null;
+  return {
+    kind: PORTAL_KINDS.includes(po.kind) ? po.kind : "hb",
+    at: String(po.at ?? ""),
+    to: String(po.to ?? ""),
+    toText: po.toText ?? "",
+    key: po.key ?? "",
+    keyItem: String(po.keyItem ?? ""),
+    quirk: po.quirk ?? "",
+    oneWay: !!po.oneWay,
+    destKnown: po.destKnown !== false,
+    keyKnown: !!po.keyKnown
+  };
+}
+
+export const isPortal = pl => !!pl?.portal;
+
+/** A portal inside another place, with no pin of its own (x/y: the place's position on the map, if any). */
+export const isInside = (pl, pos = {}) => !!pl?.portal?.at && !(Number.isFinite(pos.x) && Number.isFinite(pos.y));
+
+/**
+ * The portals that concern a place: `here` stand inside it, `to` lead to it. `places` is every place's data.
+ * A portal whose destination is the place it stands in is listed once, under `here`.
+ */
+export function portalLinks(places, id) {
+  const portals = (places ?? []).filter(p => p?.portal && p.id !== id);
+  const here = portals.filter(p => p.portal.at === id);
+  const to = portals.filter(p => p.portal.to === id && p.portal.at !== id);
+  return { here, to };
+}
+
+/** Portals inside each place: Map(hostId → [portal places]). */
+export function portalsByHost(places) {
+  const out = new Map();
+  for (const p of places ?? []) {
+    if (!p?.portal?.at) continue;
+    if (!out.has(p.portal.at)) out.set(p.portal.at, []);
+    out.get(p.portal.at).push(p);
+  }
+  return out;
+}
+
+const RANK = s => STATUSES.indexOf(s);
+
+/**
+ * What a player may read about a portal (null: nothing, it's hidden). `dest` is the destination place's data or null.
+ * { name, rumoured, dest, key, oneWay } — dest and key are "" when the players aren't told.
+ */
+export function portalForPlayer(portal, dest, lang) {
+  if (!portal?.portal || portal.status === "hidden") return null;
+  const po = portal.portal;
+  const rumoured = portal.status === "rumoured";
+  const knows = RANK(portal.status) >= RANK("known");
+  // Knowing a portal and where it leads means knowing the destination's name, even if its pin is still hidden.
+  const destName = knows && po.destKnown ? (dest ? localText(dest.name, lang) : localText(po.toText, lang)) : "";
+  return {
+    name: rumoured ? "" : localText(portal.name, lang),
+    rumoured,
+    dest: destName,
+    key: knows && po.keyKnown ? localText(po.key, lang) : "",
+    oneWay: knows ? po.oneWay : false
+  };
+}
+
+/** The pin's tint: a portal's kind colour, else its category's. */
+export function pinTint(pl, categories = {}, kinds = {}) {
+  if (pl?.portal && pl.cat === "portal" && kinds[pl.portal.kind]?.color) return kinds[pl.portal.kind].color;
+  return (categories[pl?.cat] ?? categories.landmark)?.color ?? "#ffffff";
+}
+
+/** The mark added to a host's pin label: "◈" when it holds portals the viewer may know about ("" otherwise). */
+export function hostMark(inside, gm) {
+  const shown = (inside ?? []).filter(p => gm || p.status !== "hidden");
+  return shown.length ? (shown.length > 1 ? `◈${shown.length}` : "◈") : "";
+}
+
+/**
+ * Who carries a portal's key item: members = [{ name, items: [item names] }]. Accents and case ignored; an item
+ * matches when its name contains the key's name. Returns [{ name, item }].
+ */
+export function keyHolders(members, keyItem) {
+  const q = fold(keyItem);
+  if (!q) return [];
+  const out = [];
+  for (const m of members ?? []) {
+    const item = (m?.items ?? []).find(n => fold(n).includes(q));
+    if (item) out.push({ name: m.name, item });
+  }
+  return out;
 }
 
 /** What a player sees as a place's label: nothing (hidden), "?" (rumoured) or its name. */
@@ -489,6 +613,7 @@ export function exportPack(pack, places) {
     const merged = { ...old, ...placeData({ ...old, ...pl }), x: pl.x ?? null, y: pl.y ?? null };
     // The pack keeps its starting status: the world's current status is play, not prep.
     merged.status = old.status ?? merged.status;
+    if (!merged.portal) delete merged.portal;
     byId.set(pl.id, merged);
   }
   out.places = [...byId.values()];

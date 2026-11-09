@@ -15,6 +15,7 @@ import { AtlasConsole } from "./console.mjs";
 import { registerEnrichers, listenForClicks } from "./enrich.mjs";
 import { parseCoins, parseHHMM } from "./util.mjs";
 import * as travel from "./travel.mjs";
+import * as portals from "./portals.mjs";
 
 const refreshWindows = () => {
   AtlasConsole.instance?.refreshSoon();
@@ -94,7 +95,22 @@ Hooks.once("ready", async () => {
     rollTable: id => travel.rollTable(id),
     /** Mark a place completed (progress tracks). */
     setDone: async (query, done = true) => { const h = places.findPlace(query); return h ? places.setDone(h.page, done) : null; },
-    progress: () => defs().progress.map(tr => ({ id: tr.id, ...places.trackProgress(tr) }))
+    progress: () => defs().progress.map(tr => ({ id: tr.id, ...places.trackProgress(tr) })),
+    /** Every portal: [{id, name, kind, status, at, to, toText, uuid}]; with a place, only those inside it or leading to it. */
+    portals: query => {
+      const h = query ? places.findPlace(query) : null;
+      if (query && !h) return null;
+      const list = h ? (({ here, to }) => [...here, ...to])(portals.portalsOf(h.place.id)) : places.allPlaces().filter(p => p.portal).map(p => ({ page: places.pageOfPlace(p.id), place: p }));
+      return list.map(({ page, place }) => ({ id: place.id, name: places.placeName(place), kind: place.portal.kind, status: place.status, at: place.portal.at, to: place.portal.to, toText: place.portal.toText, uuid: page?.uuid }));
+    },
+    /** Take the party through a portal (the stop is recorded at its destination). */
+    travelThrough: async query => { const h = places.findPlace(query); if (!h) { warn("Notify.NoPlace", { name: query }); return null; } return roadOps.travelThrough(h.page); },
+    /** A new portal made at the table: inside a place ({at: "id or name"}) or at a canvas point ({point: {x, y}}) on the viewed atlas. */
+    createPortal: async ({ at = "", point = null } = {}) => {
+      const host = at ? places.findPlace(at) : null;
+      if (at && !host) { warn("Notify.NoPlace", { name: at }); return null; }
+      return places.createPortal({ at: host?.place.id ?? "", point });
+    }
   };
   listenForClicks();
   trail.redrawSoon();
@@ -109,6 +125,12 @@ Hooks.on("getSceneControlButtons", controls => {
     controls.tokens.tools[`${MODULE_ID}-console`] = {
       name: `${MODULE_ID}-console`, title: "PLANAR_ATLAS.ToolConsole", icon: "fa-solid fa-map-location-dot",
       order: 64, button: true, visible: true, onChange: () => AtlasConsole.open()
+    };
+  }
+  if (gm) {
+    controls.tokens.tools[`${MODULE_ID}-portal`] = {
+      name: `${MODULE_ID}-portal`, title: "PLANAR_ATLAS.ToolPortal", icon: "fa-solid fa-dungeon",
+      order: 66, button: true, visible: true, onChange: () => portals.armPlacing(page => PlaceCard.show(page, { edit: true }))
     };
   }
   if (gm || setting("playerButton")) {
@@ -126,7 +148,7 @@ Hooks.on("canvasReady", cv => {
   trail.redrawSoon();
   refreshWindows();
 });
-Hooks.on("canvasTearDown", () => trail.teardown());
+Hooks.on("canvasTearDown", () => { trail.teardown(); portals.disarm(); });
 // The clock: Foundry's world time moved (travel, a rest, another module) → chip and windows follow.
 Hooks.on("updateWorldTime", () => { hud.refresh(); PartyWindow.instance?.refreshSoon(); });
 Hooks.on("refreshNote", note => places.styleNote(note));
@@ -149,8 +171,14 @@ Hooks.on("updateNote", (note, changed) => { places.onNoteUpdated(note, changed).
 for (const hook of ["createNote", "deleteNote", "createJournalEntryPage", "deleteJournalEntryPage"]) Hooks.on(hook, () => refreshWindows());
 // Area labels sit in the middle of their places: they follow the pins.
 for (const hook of ["createNote", "updateNote", "deleteNote"]) Hooks.on(hook, note => { if (note?.parent === globalThis.canvas?.scene) trail.redrawSoon(); });
+// Portals inside places: the host's pin carries a mark, so a portal page's change redraws its host too.
+for (const hook of ["createJournalEntryPage", "deleteJournalEntryPage"]) Hooks.on(hook, () => { places.forgetPortals(); restyleNotes(); trail.redrawSoon(); });
+function restyleNotes() { for (const n of globalThis.canvas?.notes?.placeables ?? []) places.styleNote(n); }
 Hooks.on("updateJournalEntryPage", page => {
   if (!places.placeOfPage(page)) return;
+  places.forgetPortals();
+  restyleNotes();
+  trail.redrawSoon();
   places.refreshNoteOf(page);
   refreshWindows();
   if (isActiveGM()) pages.scheduleRoadPage();

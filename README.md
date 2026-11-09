@@ -15,12 +15,13 @@ Living campaign maps for **Foundry VTT v14** and the **dnd5e** system: a big map
 - **Progress tracks:** completed places count towards steps ("2 → 7th level"), shown to the party.
 - **Maps that wrap around.** A pack can split a map into zones whose edges join (a ring city drawn as two strips): the road goes off one edge and comes back in at the other, with arrows, instead of cutting across the poster.
 - **Area labels** (wards, regions) drawn on the map.
+- **Portals.** Any place can be a portal: where it stands, where it leads (a place on any atlas, or somewhere off the maps), its key, its quirk, one-way or not. Its pin is tinted by its **kind**: *from the books*, *ours, for the story*, or *made at the table*. A portal **inside** a place (the doors of an inn's taproom) needs no pin of its own: the place's pin carries a ◈ and its card lists **the portals here** and **the portals that lead here**. Make one on the fly: the toolbar's door button, then click on the atlas; or **Portal here** on any place's card. **Through the portal** moves the party to its destination, on another atlas too. The card tells the GM which hero carries the key item. Players see only the portals they know, and only what you've told them (where it leads, its key). A thin line on the map joins a portal to its destination when both are on the same atlas. The console's **Portals** tab lists them all.
 - **Only the GM moves the party** on an atlas, even though the players own the party actor.
 - **The party window** for everyone (toolbar button, or Alt+P):
   - **Road**: every stop by session; the GM sets what the next stop is stamped with, and edits notes on stops.
   - **Purse**: the party actor's own dnd5e coins, with **a history of every change** (who, how much, why, which session). Players put coins in and pay, with change made for them; the change goes through the GM's Foundry, so two players paying at once can't overwrite each other. Coins changed on the sheet or by `/award` are written down too. The GM can undo any line.
   - **Notes**: a journal page the whole party can write in.
-- **Place cards do things** (GM): move the party there, show the place on the map, show its **Planar Theater** place over the map, start its **Planar Soundboard** soundscape, switch everyone to its battle map, open its prep note, **pay its price** from the purse.
+- **Place cards do things** (GM): move the party there or through a portal, show the place on the map, show its **Planar Theater** place over the map, start its **Planar Soundboard** soundscape, switch everyone to its battle map, open its prep note, **pay its price** from the purse.
 - **Journal buttons** for prep notes (GM only; players see plain text):
   - `@Atlas[The Salty Lantern]` the place's card
   - `@Atlas[The Salty Lantern | move]{Go there}` move the party there
@@ -54,6 +55,7 @@ https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json
 - Drop the token: the trip window shows how long it takes (estimated or rolled); change it or confirm, tick *Roll for something on the way* if you like. The clock moves on.
 - Drag the party token. Near a place, it snaps there, the place becomes *visited* and its card is a click away.
 - Double-click any pin for its card. Players get the player view of the same card.
+- A portal the party finds: the door button in the token controls, click where it stands (or **Portal here** on the card of the place it's in), fill in where it leads, set it *known*. **Through the portal** takes them there.
 - Pull the players to the atlas like any scene, or leave them on a battle map and let them open the party window.
 
 ## Pack format (schema 1)
@@ -85,9 +87,15 @@ https://github.com/zacharatos/planar-atlas/releases/latest/download/module.json
     "gm": "secrets", "ref": "book reference", "img": "relative/or/full/path.webp", "price": "5sp",
     "x": 0.18, "y": 0.28, "sets": ["guide"],
     "links": { "theater": "Theater place name", "theaterScene": "", "scape": "Soundboard scape", "scene": "Battle map scene", "prep": "Note name#Heading", "faction": "faction-id" }
+  }, {
+    "id": "cellar-door", "atlas": "city", "cat": "portal", "status": "hidden", "name": { "en": "The cellar door" }, "x": null, "y": null,
+    "portal": { "kind": "story", "at": "tavern", "to": "", "toText": { "en": "A smugglers' cove" }, "key": { "en": "A sailor's knot" },
+                "keyItem": "sailor's knot", "quirk": { "en": "Opens only at low tide" }, "oneWay": false, "destKnown": false, "keyKnown": false }
   }]
 }
 ```
+
+Portals: `kind` is `book`, `story` or `hb` (made at the table, the default). `at` is a place on the same atlas the portal stands in; with no `x`/`y` it has no pin (it shows on that place's card). `to` is a place on any atlas, or empty with `toText` for a destination off the maps. `keyItem` is looked for (by name, accents and case ignored) in the party members' and the group's inventories. Players who know the portal are told where it leads unless `destKnown` is `false`, and its key only if `keyKnown` is `true`. A place without `portal` is an ordinary place.
 
 Travel rules: `per: "map"` is the time to cross the whole map's width (scaled by the road's length; `min` in minutes, rounded to 5 minutes), `roll` a dice formula per trip, `fixed` a set time; units `minute`, `hour`, `day`; `default` covers ways without a rule. Areas without `x`/`y` get their label in the middle of their places. A reveal set raises its places to its `status` (`known` by default, or `rumoured`), never lowers one. Positions are fractions of the map (0 to 1), so a pack works with any size of the same image. `x`/`y` `null` means "not placed yet". Text fields can be a string or `{ "en": …, "el": … }`. Built-in categories: landmark, tavern, temple, shop, faction, portal, danger, home, town, wild, hb. Relative picture paths are read from the *Image folder* setting.
 
@@ -101,7 +109,7 @@ Travel rules: `per: "map"` is the time to cross the whole map's width (scaled by
 - **Default language**, and each user's own **language** for the module.
 - **Travel time**: ask each time / pass it without asking / off.
 - **Use Foundry's world time** (on by default).
-- **Area names on the atlas** and **Clock on atlas maps** (per user).
+- **Area names on the atlas**, **Portal lines on the atlas** and **Clock on atlas maps** (per user).
 
 ## Macro API
 
@@ -117,6 +125,7 @@ Travel rules: `per: "map"` is the time to cross the whole map's width (scaled by
 | `company()`, `createCompany()`, `placeCompany(scene)` | the party actor |
 | `clock()`, `clockLabel()`, `advanceClock(seconds)`, `setClock(day, "hh:mm")` | the clock |
 | `rollTable(id)`, `setDone(name, done)`, `progress()` | encounters, progress |
+| `portals(name?)`, `travelThrough(name)`, `createPortal({at, point})` | portals: all of them, or those in/leading to a place; take the party through one; make one |
 | `setupPlaces(atlasId)`, `exportPack()`, `defs()`, `syncPages()`, `redraw()` | setup |
 
 ## Development

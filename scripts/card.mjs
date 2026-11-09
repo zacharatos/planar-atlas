@@ -1,16 +1,17 @@
 // The place card: what a place is, as each user may see it. Players get the name, a picture, what they know
 // and when they were there; the GM also gets the secrets, the links (Theater, Soundboard, battle map, prep note)
 // and the buttons that change the place, move the party there or pay its price from the purse.
-import { MODULE_ID } from "./constants.mjs";
+import { MODULE_ID, PORTAL_KIND_STYLE } from "./constants.mjs";
 import { t, warn, local, language } from "./i18n.mjs";
 import { setting } from "./settings.mjs";
 import { defs, road, atlasDef } from "./state.mjs";
-import { placeOfPage, placeName, savePlace, setStatus, deletePlace, noteOfPage, setDone } from "./places.mjs";
+import { placeOfPage, placeName, savePlace, setStatus, deletePlace, noteOfPage, setDone, pageOfPlace, allPlaces, createPortal, pinPortal } from "./places.mjs";
+import { portalsOf, keyCarriers } from "./portals.mjs";
 import { rollEncounters } from "./travel.mjs";
-import { moveCompanyTo } from "./road.mjs";
+import { moveCompanyTo, travelThrough } from "./road.mjs";
 import { change as purseChange } from "./purse.mjs";
 import { atlasName, sceneOfAtlas, pickImage } from "./atlas.mjs";
-import { escapeHTML as esc, localText, visitsOf, STATUSES, parseCoins, coinsText, fold, encounterTables } from "./util.mjs";
+import { escapeHTML as esc, localText, visitsOf, STATUSES, parseCoins, coinsText, fold, encounterTables, PORTAL_KINDS, portalForPlayer, playerLabel } from "./util.mjs";
 
 /** A scene by exact name, else the first whose name contains it (accents and case ignored). */
 const sceneNamed = name => (name ? game.scenes.getName(name) ?? game.scenes.find(s => fold(s.name).includes(fold(name))) ?? null : null);
@@ -117,7 +118,91 @@ export class PlaceCard extends ApplicationV2 {
       ${text ? `<div class="pa-text">${esc(text).split(/\n+/).map(p => `<p>${p}</p>`).join("")}</div>` : `<p class="pa-hint">${esc(t("Card.NoText"))}</p>`}
       ${visitText ? `<p class="pa-visits"><i class="fa-solid fa-shoe-prints"></i> ${esc(t("Card.Visits"))}: ${esc(visitText)}</p>` : ""}
       ${pl.done ? `<p class="pa-done"><i class="fa-solid fa-circle-check"></i> ${esc(t("Card.Done"))}</p>` : ""}`;
-    return `<div class="pa-card">${head}${body}${gm ? this.#gmPart(pl) : ""}</div>`;
+    return `<div class="pa-card">${head}${body}${this.#portalPart(pl, gm, lang)}${this.#portalList(pl, gm, lang)}${gm ? this.#gmPart(pl) : ""}</div>`;
+  }
+
+  /* ---------------- portals ---------------- */
+
+  /** A link to another place's card, as this user may see it (plain text if they can't open it). */
+  #placeLink(place, gm, lang, text = null) {
+    const page = pageOfPlace(place?.id);
+    const label = text ?? (gm ? placeName(place, lang) : playerLabel(place, lang));
+    if (!label) return "";
+    if (!page || (!gm && place.status === "hidden")) return esc(label);
+    return `<a data-act="open" data-uuid="${esc(page.uuid)}">${esc(label)}</a>`;
+  }
+
+  /** What a portal is: where it stands, where it leads, its key and quirk (players: what they've been told). */
+  #portalPart(pl, gm, lang) {
+    const po = pl.portal;
+    if (!po) return "";
+    const host = po.at ? placeOfPage(pageOfPlace(po.at)) : null;
+    const dest = po.to ? placeOfPage(pageOfPlace(po.to)) : null;
+    const style = PORTAL_KIND_STYLE[po.kind] ?? PORTAL_KIND_STYLE.hb;
+    const row = (icon, label, value) => (value ? `<li><i class="fa-solid ${icon}"></i> <span class="pa-k">${esc(label)}:</span> ${value}</li>` : "");
+    if (!gm) {
+      const seen = portalForPlayer(pl, dest, lang);
+      if (!seen || seen.rumoured) return "";
+      const hostLink = host && host.status !== "hidden" && host.status !== "rumoured" ? this.#placeLink(host, false, lang) : "";
+      const destText = seen.dest ? (dest && dest.status !== "hidden" ? this.#placeLink(dest, false, lang, seen.dest) : esc(seen.dest)) : esc(t("Portal.DestUnknown"));
+      return `<ul class="pa-portal">
+        ${row("fa-door-open", t("Portal.StandsIn"), hostLink)}
+        ${row("fa-arrow-right", t("Portal.LeadsTo"), destText)}
+        ${row("fa-key", t("Portal.Key"), esc(seen.key))}
+        ${seen.oneWay ? `<li><i class="fa-solid fa-arrow-right-long"></i> ${esc(t("Portal.OneWay"))}</li>` : ""}
+      </ul>`;
+    }
+    const destText = dest ? this.#placeLink(dest, true, lang) + (dest.atlas !== pl.atlas ? ` <span class="pa-meta">(${esc(atlasName(dest.atlas))})</span>` : "")
+      : (localText(po.toText, lang) ? esc(localText(po.toText, lang)) : `<span class="pa-hint">${esc(t("Portal.NoDest"))}</span>`);
+    const carriers = po.keyItem ? keyCarriers(po.keyItem) : null;
+    const keyLine = [localText(po.key, lang) && esc(localText(po.key, lang)), po.keyKnown ? `<span class="pa-meta">(${esc(t("Portal.PlayersKnow"))})</span>` : ""].filter(Boolean).join(" ");
+    const carrierLine = carriers ? (carriers.length
+      ? `<span class="pa-ok"><i class="fa-solid fa-check"></i> ${esc(carriers.map(c => `${c.name}: ${c.item}`).join(" · "))}</span>`
+      : `<span class="pa-warn"><i class="fa-solid fa-xmark"></i> ${esc(t("Portal.NobodyCarries", { item: po.keyItem }))}</span>`) : "";
+    return `<ul class="pa-portal" style="--pa-kind:${esc(style.color)}">
+      <li class="pa-kind"><i class="fa-solid ${esc(style.icon)}"></i> ${esc(t(`Portal.Kind.${po.kind}`))}${po.oneWay ? ` · ${esc(t("Portal.OneWay"))}` : ""}</li>
+      ${row("fa-door-open", t("Portal.StandsIn"), host ? this.#placeLink(host, true, lang) : "")}
+      ${row("fa-arrow-right", t("Portal.LeadsTo"), destText + (po.destKnown ? "" : ` <span class="pa-meta">(${esc(t("Portal.DestSecret"))})</span>`))}
+      ${row("fa-key", t("Portal.Key"), keyLine)}
+      ${carrierLine ? `<li class="pa-carriers">${carrierLine}</li>` : ""}
+      ${row("fa-shuffle", t("Portal.Quirk"), esc(localText(po.quirk, lang)))}
+    </ul>`;
+  }
+
+  /** The portals inside this place and the ones that lead to it. */
+  #portalList(pl, gm, lang) {
+    const { here, to } = portalsOf(pl.id);
+    const item = ({ page, place }, other) => {
+      const po = place.portal;
+      const style = PORTAL_KIND_STYLE[po.kind] ?? PORTAL_KIND_STYLE.hb;
+      if (!gm) {
+        const otherPlace = other ? placeOfPage(pageOfPlace(other)) : null;
+        const seen = portalForPlayer(place, other === po.to ? otherPlace : placeOfPage(pageOfPlace(po.to)), lang);
+        if (!seen) return "";
+        if (seen.rumoured) return `<li class="pa-portal-row"><i class="fa-solid fa-dungeon"></i> ${esc(t("Portal.Rumoured"))}</li>`;
+        const where = other === po.at
+          ? (otherPlace && otherPlace.status !== "hidden" && otherPlace.status !== "rumoured" ? ` <span class="pa-meta">${esc(t("Portal.InPlace", { name: placeName(otherPlace, lang) }))}</span>` : "")
+          : (seen.dest ? ` <span class="pa-meta">→ ${esc(seen.dest)}</span>` : "");
+        return `<li class="pa-portal-row"><i class="fa-solid fa-dungeon"></i> <a data-act="open" data-uuid="${esc(page.uuid)}">${esc(seen.name)}</a>${where}${seen.oneWay ? ` <i class="fa-solid fa-arrow-right-long" ${tip(t("Portal.OneWay"))}></i>` : ""}</li>`;
+      }
+      const target = other === po.at ? placeOfPage(pageOfPlace(po.at)) : placeOfPage(pageOfPlace(po.to));
+      const where = other === po.at
+        ? (target ? t("Portal.InPlace", { name: placeName(target, lang) }) : "")
+        : (target ? `→ ${placeName(target, lang)}${target.atlas !== pl.atlas ? ` (${atlasName(target.atlas)})` : ""}` : (localText(po.toText, lang) ? `→ ${localText(po.toText, lang)}` : ""));
+      return `<li class="pa-portal-row s-${place.status}" style="--pa-kind:${esc(style.color)}">
+        <i class="fa-solid fa-dungeon pa-kind-dot" ${tip(t(`Portal.Kind.${po.kind}`))}></i>
+        <a data-act="open" data-uuid="${esc(page.uuid)}">${esc(placeName(place, lang))}</a>
+        <span class="pa-meta">${esc(where)}</span>
+        <i class="fa-solid ${STATUS_ICON[place.status]} pa-st-mini" ${tip(t(`Status.${place.status}.Name`))}></i>
+      </li>`;
+    };
+    const hereRows = here.map(x => item(x, x.place.portal.to)).filter(Boolean).join("");
+    const toRows = to.map(x => item(x, x.place.portal.at)).filter(Boolean).join("");
+    if (!hereRows && !toRows) return "";
+    return `<section class="pa-portals">
+      ${hereRows ? `<h4><i class="fa-solid fa-dungeon"></i> ${esc(t("Portal.Here"))}</h4><ul>${hereRows}</ul>` : ""}
+      ${toRows ? `<h4><i class="fa-solid fa-right-to-bracket"></i> ${esc(t("Portal.ToHere"))}</h4><ul>${toRows}</ul>` : ""}
+    </section>`;
   }
 
   #gmPart(pl) {
@@ -136,7 +221,11 @@ export class PlaceCard extends ApplicationV2 {
         L.faction && `${esc(t("Card.Faction"))}: ${esc(L.faction)}`
       ].filter(Boolean).join(" · ")}</p>`
     ].join("");
+    const po = pl.portal;
+    const inside = po?.at && !noteOfPage(this.page);
     const actions = [
+      po?.to ? btn("through", "fa-dungeon", t("Portal.Through"), tip(t("Portal.ThroughHint"))) : "",
+      inside ? btn("pin", "fa-map-pin", t("Portal.Pin"), tip(t("Portal.PinHint"))) : "",
       btn("move", "fa-person-walking-arrow-right", t("Card.Move")),
       btn("pan", "fa-crosshairs", "", tip(t("Card.Pan"))),
       theater ? btn("theater", "fa-masks-theater", t("Card.Theater"), tip(t("Card.TheaterHint", { name: L.theater }))) : "",
@@ -146,7 +235,8 @@ export class PlaceCard extends ApplicationV2 {
       L.prep ? btn("prep", "fa-book-open", t("Card.Prep"), tip(L.prep)) : "",
       price ? btn("pay", "fa-coins", t("Card.Pay", { price: coinsText(price) })) : "",
       encounterTables(atlasDef(pl.atlas), pl.area).length ? btn("encounter", "fa-dice", t("Card.Encounter"), tip(t("Card.EncounterHint"))) : "",
-      btn("done", pl.done ? "fa-circle-check" : "fa-circle", t(pl.done ? "Card.Done" : "Card.MarkDone"), `${tip(t("Card.DoneHint"))} class="${pl.done ? "on" : ""}"`)
+      btn("done", pl.done ? "fa-circle-check" : "fa-circle", t(pl.done ? "Card.Done" : "Card.MarkDone"), `${tip(t("Card.DoneHint"))} class="${pl.done ? "on" : ""}"`),
+      po ? "" : btn("add-portal", "fa-dungeon", t("Portal.AddHere"), tip(t("Portal.AddHereHint")))
     ].join("");
     return `<section class="pa-gm">
       <div class="pa-statuses">${statusBtns}</div>
@@ -182,8 +272,39 @@ export class PlaceCard extends ApplicationV2 {
         ${field("links.prep", t("Form.Prep"), L.prep, { hint: t("Form.PrepHint") })}
         ${field("links.faction", t("Form.Faction"), L.faction)}
       </fieldset>
+      ${this.#portalForm(pl, field)}
       <footer class="pa-foot"><button type="submit"><i class="fa-solid fa-floppy-disk"></i> ${esc(t("Form.Save"))}</button>${btn("cancel", "fa-xmark", t("Form.Cancel"))}</footer>
     </form>`;
+  }
+
+  /** The portal fields of the edit form: off for an ordinary place until "This place is a portal" is ticked. */
+  #portalForm(pl, field) {
+    const po = pl.portal ?? {};
+    const lang = language();
+    const places = allPlaces().filter(p => p.id !== pl.id);
+    const byAtlas = new Map();
+    for (const p of places) { if (!byAtlas.has(p.atlas)) byAtlas.set(p.atlas, []); byAtlas.get(p.atlas).push(p); }
+    const sorted = list => [...list].sort((a, b) => placeName(a, lang).localeCompare(placeName(b, lang), lang));
+    const opt = (p, sel) => `<option value="${esc(p.id)}" ${p.id === sel ? "selected" : ""}>${esc(placeName(p, lang))}${p.portal ? " ◈" : ""}</option>`;
+    // Inside: a place on the same atlas that isn't itself inside another one.
+    const atOpts = sorted((byAtlas.get(pl.atlas) ?? []).filter(p => !p.portal?.at)).map(p => opt(p, po.at)).join("");
+    const toOpts = [...byAtlas.entries()].map(([a, list]) => `<optgroup label="${esc(atlasName(a))}">${sorted(list).map(p => opt(p, po.to)).join("")}</optgroup>`).join("");
+    const kinds = PORTAL_KINDS.map(k => `<option value="${k}" ${k === (po.kind ?? "hb") ? "selected" : ""}>${esc(t(`Portal.Kind.${k}`))}</option>`).join("");
+    const check = (name, label, on, hint = "") => `<div class="form-group"><label>${esc(label)}</label><div class="form-fields"><input type="checkbox" name="${name}" ${on ? "checked" : ""}></div>${hint ? `<p class="hint">${esc(hint)}</p>` : ""}</div>`;
+    return `<fieldset class="pa-portal-form"><legend><i class="fa-solid fa-dungeon"></i> ${esc(t("Portal.Legend"))}</legend>
+      ${check("portal.on", t("Portal.IsPortal"), !!pl.portal, t("Portal.IsPortalHint"))}
+      <div class="form-group"><label>${esc(t("Portal.KindLabel"))}</label><div class="form-fields"><select name="portal.kind">${kinds}</select></div></div>
+      <div class="form-group"><label>${esc(t("Portal.StandsIn"))}</label><div class="form-fields"><select name="portal.at"><option value="">${esc(t("Portal.OnItsOwn"))}</option>${atOpts}</select></div>
+        <p class="hint">${esc(t("Portal.StandsInHint"))}</p></div>
+      <div class="form-group"><label>${esc(t("Portal.LeadsTo"))}</label><div class="form-fields"><select name="portal.to"><option value="">${esc(t("Portal.Elsewhere"))}</option>${toOpts}</select></div></div>
+      ${field("portal.toText", t("Portal.ToText"), localText(po.toText, "el"), { hint: t("Portal.ToTextHint") })}
+      ${field("portal.key", t("Portal.Key"), localText(po.key, "el"))}
+      ${field("portal.keyItem", t("Portal.KeyItem"), po.keyItem ?? "", { hint: t("Portal.KeyItemHint") })}
+      ${field("portal.quirk", t("Portal.Quirk"), localText(po.quirk, "el"), { hint: t("Portal.QuirkHint") })}
+      ${check("portal.oneWay", t("Portal.OneWay"), !!po.oneWay)}
+      ${check("portal.destKnown", t("Portal.DestKnown"), po.destKnown !== false, t("Portal.DestKnownHint"))}
+      ${check("portal.keyKnown", t("Portal.KeyKnown"), !!po.keyKnown)}
+    </fieldset>`;
   }
 
   /* ---------------- actions ---------------- */
@@ -204,7 +325,27 @@ export class PlaceCard extends ApplicationV2 {
       sets: v("sets").split(",").map(s => s.trim()).filter(Boolean),
       links: Object.fromEntries(["theater", "theaterScene", "scape", "scene", "prep", "faction"].map(k => [k, v(`links.${k}`)]))
     };
-    await savePlace(page, patch);
+    const on = name => !!form.elements[name]?.checked;
+    if (on("portal.on")) {
+      const old = pl.portal ?? {};
+      const withEl = (value, el) => ({ ...(typeof value === "object" && value ? value : { en: typeof value === "string" ? value : "" }), el });
+      patch.portal = {
+        kind: v("portal.kind") || "hb", at: v("portal.at"), to: v("portal.to"),
+        toText: withEl(old.toText, v("portal.toText")), key: withEl(old.key, v("portal.key")), keyItem: v("portal.keyItem"),
+        quirk: withEl(old.quirk, v("portal.quirk")),
+        oneWay: on("portal.oneWay"), destKnown: on("portal.destKnown"), keyKnown: on("portal.keyKnown")
+      };
+      // A place that holds portals can't stand inside another one (portals nest one level deep).
+      if (patch.portal.at && portalsOf(pl.id).here.length) {
+        warn("Portal.HostCantBeInside", { name: placeName(pl) });
+        patch.portal.at = "";
+      }
+      // A new portal takes the portal pin (an ordinary category stays if the GM picked one on purpose).
+      if (!pl.portal && patch.cat === pl.cat && pl.cat === "landmark") patch.cat = "portal";
+    } else patch.portal = null;
+    const saved = await savePlace(page, patch);
+    // Taken out of the place it stood in (or no longer a portal): it needs a pin of its own.
+    if (saved && !saved.portal?.at && !noteOfPage(page)) await pinPortal(page);
     this.#edit = false;
     this.render();
   }
@@ -220,6 +361,18 @@ export class PlaceCard extends ApplicationV2 {
     try {
       switch (act) {
         case "status": await setStatus(page, el.dataset.status); break;
+        case "open": {
+          const other = (foundry.utils.fromUuidSync ?? globalThis.fromUuidSync)(el.dataset.uuid);
+          if (other) PlaceCard.show(other);
+          break;
+        }
+        case "through": await travelThrough(page); break;
+        case "pin": await pinPortal(page); this.render(); break;
+        case "add-portal": {
+          const made = await createPortal({ at: pl.id });
+          if (made) PlaceCard.show(made, { edit: true });
+          break;
+        }
         case "move": await moveCompanyTo(page); break;
         case "pan": {
           const note = noteOfPage(page);

@@ -13,7 +13,8 @@ scripts/
   atlas.mjs            atlas scenes: bind a scene, create one from a map image, map rectangle, 0–1 coordinates
   places.mjs           places: atlas journal, one page + one map note per place, set up from the pack, status,
                        reveal sets, new/delete, pack export, note styling per user, notes toggle on atlases
-  card.mjs             the place card (ApplicationV2): player and GM views, edit form, actions
+  card.mjs             the place card (ApplicationV2): player and GM views, edit form, actions, portal parts
+  portals.mjs          portals at the table: place one with a click, the lists a card shows, who carries a key
   road.mjs             the party actor and its token, recording stops on drop (snap), player lock, move to a
                        place, undo / archive / clear
   trail.mjs            the road drawn on the canvas (PIXI, in the interface group), area labels, the pulse
@@ -48,6 +49,7 @@ There is no build step: Foundry loads `scripts/main.mjs` directly.
 - **Travel**: `util.mjs › routeLength` (map widths, aspect-corrected, through wraps) → `travelRule` / `travelEstimate` → `travel.mjs › planTrip` (roll with Foundry dice, the trip window) → `road.mjs › recordMove`, which handles one move at a time (a promise chain), so a second drop waits for the first trip window.
 - **Encounters**: `tables` in the pack, inline (`formula` + `rows` with `range`) or `rollTable` (a world RollTable by name); `encounterTables(atlas, area)` picks the destination area's then the atlas's; results are whispered to every GM.
 - **Progress**: a place's `done` flag (card button); `progressOf(track, isDone)` / `stepsCrossed` in `util.mjs`.
+- **Portals** are places with a `portal` (`portalData` in `util.mjs`): `kind` (book / story / hb), `at` (the place it stands in, same atlas), `to` (any place) or `toText`, `key`, `keyItem`, `quirk`, `oneWay`, `destKnown`, `keyKnown`. A portal with `at` and no position has **no note** (`isInside`): `setupPlaces` skips it, the host's pin label gets ◈ (`hostMark`, from a cache of `portalsByHost` thrown away on every place-page change, `forgetPortals`), and its card is reached from the host's card (`portalLinks`: *here* / *leads here*). Players see a portal through `portalForPlayer` (nothing if hidden; destination and key only if told). The pin's tint is the kind's colour (`pinTint`, `PORTAL_KIND_STYLE`). **Through the portal** (`road.mjs › travelThrough`) views the destination's atlas and calls `moveCompanyTo(dest, {how: "portal", note})`; a destination inside a place lands on its host. Deleting a place re-points its portals (`to` → `toText`; inside ones get a pin where it stood). Lines from a portal to its destination: `trail.mjs › portalLinks`.
 - **Pages** are rewritten 2 s after a change (road, purse); the notes page is made once and never overwritten.
 - **Coordinates** are stored as fractions of the map rectangle (`scene.dimensions` without padding), so packs survive a bigger image.
 
@@ -114,6 +116,20 @@ Two browsers: the GM and a player who owns a character. dnd5e 6.x.
 - Drag quickly twice: the second trip window waits for the first.
 - Card → **Mark completed** on two places of the *Sights seen* track: the party window shows 2/3 and the step; the GM gets a lasting notice "Sights seen: 2 completed → …". A player sees the track (it has `players: true`); hidden places show "?" in its tooltip.
 - Road page: the *Trip* column has the trip's length.
+
+**Portals (0.3.0)** (import `data/example-pack.json` again, **Set up places**: the cellar door gets no pin)
+- GM: the tavern's pin reads «The Salty Lantern ◈»; its card has **Portals here** → *The cellar door* (purple dot, ⦸ status). Click it: the portal's card, kind *Ours, for the story*, stands in the tavern, leads to «A smugglers' cove» (players aren't told), key. The player sees no ◈ and no list.
+- Set the cellar door *Known*: the player's tavern pin gets ◈ within a second; their tavern card lists the door with no destination; its card says "nobody knows where". Tick *Players know where it leads* in its form: the player sees «→ A smugglers' cove».
+- The Rusted Arch (one-way, from the books, leads to the temple): place it, set both known. A thin cyan dashed line runs from the arch to the temple, ending in a ring with an arrow; the temple's card lists the arch under **Portals that lead here**. Hide the temple: the player's line disappears. Settings → *Portal lines on the atlas* off: no lines.
+- Give a hero an item named "Rusted nail": the arch's card shows "✓ <hero>: Rusted nail"; remove it: "Nobody in the party carries «rusted nail»".
+- Arch → **Through the portal**: the party token goes to the temple, "Stop N: …", the stop's note reads "through «…»", *How* = Through a portal, the arch turns *visited*.
+- Toolbar door button, click on an empty spot of the atlas: a new gold pin (made at the table, hidden) and its card in edit mode. Esc (or the button again) before clicking: "No portal placed".
+- Tavern card → **Portal here**: a new portal inside the tavern, no pin, ◈2 on the tavern. Its card → **Pin on the map**: a pin beside the tavern; ◈ goes back to one.
+- Edit a portal: set *Leads to* a place on another atlas (make a second atlas in a test pack), **Through the portal**: the GM's view switches to that atlas and the stop is recorded there.
+- Untick *This place is a portal* on a portal inside a place: it gets a pin in the middle of the view and becomes an ordinary place.
+- Delete the tavern: the cellar door gets a pin where the tavern stood; a portal that led to the tavern keeps its name as text.
+- Console → **Portals**: every portal by atlas with its kind, "in …", ⇄/⇢ destination and a status select; search works; **Place by click** and **New portal** when on an atlas. Places tab: an inside portal shows a door icon, not the ⚠.
+- **Save pack**: the cellar door has `portal` and `x`/`y` null; ordinary places have no `portal` key.
 
 **Cards, buttons, pages**
 - Card with a Theater link (Planar Theater active, a place with that name exists): **Theater** shows it over the map; the eye-slash takes it down. **Sound** starts the soundscape (Planar Soundboard). **Battle map** activates that scene. **Prep** opens the note at the heading. **Pay** takes the place's price from the purse.

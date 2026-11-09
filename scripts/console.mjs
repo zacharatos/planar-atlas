@@ -1,19 +1,20 @@
 // The GM console: set up (the campaign pack, the Company, each atlas's scene and places, reveal sets, the pages)
 // and the places of an atlas at a glance (status, parked or on the map, search).
-import { MODULE_ID } from "./constants.mjs";
+import { MODULE_ID, PORTAL_KIND_STYLE } from "./constants.mjs";
 import { t, warn, info, local, language, toggleLanguage } from "./i18n.mjs";
 import { setting, setSetting } from "./settings.mjs";
 import { pack, importPack, defs, company } from "./state.mjs";
 import { atlases, atlasIdOf, bindScene, createAtlasScene, atlasName } from "./atlas.mjs";
-import { setupPlaces, placesOn, setStatus, createPlace, downloadPack, revealSet, placeName } from "./places.mjs";
+import { setupPlaces, placesOn, setStatus, createPlace, downloadPack, revealSet, placeName, allPlaces, pageOfPlace, createPortal } from "./places.mjs";
+import { armPlacing } from "./portals.mjs";
 import { createCompany, addMembers, placeCompany } from "./road.mjs";
 import { PlaceCard } from "./card.mjs";
 import { PartyWindow } from "./party.mjs";
 import { syncRoadPage, syncPursePage, openNotes } from "./page.mjs";
-import { escapeHTML as esc, STATUSES, fold, localText } from "./util.mjs";
+import { escapeHTML as esc, STATUSES, fold, localText, PORTAL_KINDS } from "./util.mjs";
 
 const { ApplicationV2 } = foundry.applications.api;
-const TABS = { setup: "fa-screwdriver-wrench", places: "fa-map-pin" };
+const TABS = { setup: "fa-screwdriver-wrench", places: "fa-map-pin", portals: "fa-dungeon" };
 const btn = (act, icon, label, extra = "", cls = "") => `<button type="button" class="${cls}" data-act="${act}" ${extra}><i class="fa-solid ${icon}"></i>${label ? ` ${esc(label)}` : ""}</button>`;
 const tip = s => `data-tooltip="${esc(s)}"`;
 
@@ -85,7 +86,7 @@ export class AtlasConsole extends ApplicationV2 {
     const tabs = Object.entries(TABS).map(([k, icon]) => `<a class="pa-tab ${k === this.#tab ? "active" : ""}" data-act="tab" data-tab="${k}"><i class="fa-solid ${icon}"></i> ${esc(t(`Console.Tab.${k}`))}</a>`).join("");
     const lang = btn("lang", "fa-language", language() === "el" ? "ΕΛ" : "EN", tip(t("Party.Language")), "pa-lang");
     const party = btn("party", "fa-people-group", "", tip(t("Console.OpenParty")));
-    const body = this.#tab === "places" ? this.#places() : this.#setup();
+    const body = this.#tab === "places" ? this.#places() : this.#tab === "portals" ? this.#portals() : this.#setup();
     return `<nav class="pa-tabs">${tabs}<span class="pa-grow"></span>${party}${lang}</nav><section class="pa-body">${body}</section>`;
   }
 
@@ -166,7 +167,8 @@ export class AtlasConsole extends ApplicationV2 {
         <img class="pa-cat" src="${esc(cat.icon)}" style="--pa-tint:${esc(cat.color ?? "#fff")}" alt="">
         <a data-act="card" data-uuid="${esc(page.uuid)}">${esc(placeName(place))}</a>
         ${parked ? `<span class="pa-warn" ${tip(t("Console.ParkedHint"))}><i class="fa-solid fa-square-parking"></i></span>` : ""}
-        ${!note ? `<span class="pa-warn" ${tip(t("Console.NoNote"))}><i class="fa-solid fa-triangle-exclamation"></i></span>` : ""}
+        ${!note && place.portal?.at ? `<span class="pa-meta" ${tip(t("Portal.InsideHint"))}><i class="fa-solid fa-door-open"></i></span>` : ""}
+        ${!note && !place.portal?.at ? `<span class="pa-warn" ${tip(t("Console.NoNote"))}><i class="fa-solid fa-triangle-exclamation"></i></span>` : ""}
         <span class="pa-grow"></span>
         <select name="status" data-uuid="${esc(page.uuid)}">${status}</select>
       </li>`;
@@ -178,6 +180,45 @@ export class AtlasConsole extends ApplicationV2 {
       </div>
       <p class="pa-meta">${STATUSES.map(s => `${esc(t(`Status.${s}.Name`))}: ${counts[s]}`).join(" · ")}</p>
       ${rows ? `<ul class="pa-places">${rows}</ul>` : `<p class="pa-hint">${esc(t("Console.NoPlaces", { name: atlasName(id) }))}</p>`}`;
+  }
+
+  /** Every portal, by atlas: kind, where it stands, where it leads, status. The registry the table asked for. */
+  #portals() {
+    const lang = language();
+    const all = allPlaces();
+    const byId = new Map(all.map(p => [p.id, p]));
+    const portals = all.filter(p => p.portal);
+    const counts = PORTAL_KINDS.map(k => `<span style="--pa-kind:${esc(PORTAL_KIND_STYLE[k].color)}" class="pa-kind-chip"><i class="fa-solid ${esc(PORTAL_KIND_STYLE[k].icon)}"></i> ${esc(t(`Portal.Kind.${k}`))}: ${portals.filter(p => p.portal.kind === k).length}</span>`).join(" ");
+    const onAtlas = !!atlasIdOf(canvas.scene);
+    const tools = `<div class="pa-row pa-tools">
+        <input type="search" name="filter" value="${esc(this.#filter)}" placeholder="${esc(t("Console.Search"))}">
+        ${onAtlas ? btn("place-portal", "fa-crosshairs", t("Portal.PlaceByClick"), tip(t("Portal.PlaceByClickHint"))) : ""}
+        ${onAtlas ? btn("new-portal", "fa-plus", t("Portal.New"), tip(t("Portal.NewHint"))) : ""}
+      </div><p class="pa-meta">${counts}</p>`;
+    if (!portals.length) return `${tools}<p class="pa-hint">${esc(t("Portal.None"))}</p>`;
+    const groups = atlases().map(a => {
+      const mine = portals.filter(p => p.atlas === a.id).sort((x, y) => placeName(x, lang).localeCompare(placeName(y, lang), lang));
+      if (!mine.length) return "";
+      const rows = mine.map(p => {
+        const po = p.portal;
+        const page = pageOfPlace(p.id);
+        const host = byId.get(po.at), dest = byId.get(po.to);
+        const style = PORTAL_KIND_STYLE[po.kind] ?? PORTAL_KIND_STYLE.hb;
+        const link = (pl, other = false) => (pl ? `<a data-act="card" data-uuid="${esc(pageOfPlace(pl.id)?.uuid ?? "")}">${esc(placeName(pl, lang))}</a>${other && pl.atlas !== p.atlas ? ` <span class="pa-meta">(${esc(atlasName(pl.atlas))})</span>` : ""}` : "");
+        const to = dest ? link(dest, true) : esc(localText(po.toText, lang) || "—");
+        const status = STATUSES.map(s => `<option value="${s}" ${s === p.status ? "selected" : ""}>${esc(t(`Status.${s}.Name`))}</option>`).join("");
+        const search = fold(`${localText(p.name, "el")} ${localText(p.name, "en")} ${p.id} ${host ? localText(host.name, "el") : ""} ${dest ? localText(dest.name, "el") : localText(po.toText, "el")}`);
+        return `<li class="pa-place s-${p.status}" data-search="${esc(search)}" style="--pa-kind:${esc(style.color)}">
+          <i class="fa-solid ${esc(style.icon)} pa-kind-dot" ${tip(t(`Portal.Kind.${po.kind}`))}></i>
+          <span class="pa-portal-line"><a data-act="card" data-uuid="${esc(page?.uuid ?? "")}">${esc(placeName(p, lang))}</a>
+            <span class="pa-meta">${host ? `${esc(t("Portal.In"))} ${link(host)} · ` : ""}${po.oneWay ? "⇢" : "⇄"} ${to}</span></span>
+          <span class="pa-grow"></span>
+          <select name="status" data-uuid="${esc(page?.uuid ?? "")}">${status}</select>
+        </li>`;
+      }).join("");
+      return `<h3 class="pa-session"><i class="fa-solid fa-map"></i> ${esc(a.name)}</h3><ul class="pa-places">${rows}</ul>`;
+    }).join("");
+    return `${tools}${groups}`;
   }
 
   #applyFilter() {
@@ -248,6 +289,12 @@ export class AtlasConsole extends ApplicationV2 {
           const from = foundry.utils.fromUuidSync ?? globalThis.fromUuidSync;
           const page = from(el.dataset.uuid);
           if (page) PlaceCard.show(page);
+          break;
+        }
+        case "place-portal": armPlacing(page => PlaceCard.show(page, { edit: true })); break;
+        case "new-portal": {
+          const page = await createPortal();
+          if (page) PlaceCard.show(page, { edit: true });
           break;
         }
         case "new-place": {

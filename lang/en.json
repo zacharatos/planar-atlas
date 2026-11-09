@@ -2,6 +2,7 @@
   "PLANAR_ATLAS": {
     "ToolConsole": "Planar Atlas (GM)",
     "ToolParty": "The party: road, purse, notes",
+    "ToolPortal": "Place a portal (click on the atlas)",
     "Keybinding": {
       "Party": "Open the party window",
       "PartyHint": "The road, the common purse and the party's notes.",
@@ -60,6 +61,10 @@
       "showClock": {
         "Name": "Clock on atlas maps",
         "Hint": "Show the in-world day and time at the top of the screen on an atlas."
+      },
+      "showPortalLinks": {
+        "Name": "Portal lines on the atlas",
+        "Hint": "Draw a thin line from each portal to where it leads, when both ends are on the same map (players: only portals they know)."
       }
     },
     "Status": {
@@ -186,7 +191,8 @@
       "DeleteJourney": "Delete this journey",
       "APoint": "Somewhere on the map",
       "HowHint": "Written on the next stop and used for its travel time.",
-      "Near": "near {name}"
+      "Near": "near {name}",
+      "ViaPortal": "through «{name}»"
     },
     "Purse": {
       "NoCompany": "The GM hasn't set up the party yet.",
@@ -227,7 +233,8 @@
       "OpenParty": "Open the party window",
       "Tab": {
         "setup": "Setup",
-        "places": "Places"
+        "places": "Places",
+        "portals": "Portals"
       },
       "Pack": "Campaign pack",
       "PackLoaded": "{name}: {atlases} atlases, {places} places.",
@@ -354,7 +361,10 @@
       "BadTime": "«{time}» isn't a time (use hh:mm).",
       "AlreadyThere": "The party is already at {name}: no new stop.",
       "NotActiveGM": "This browser isn't the active GM: the road is recorded in the active GM's browser only. Use that one (or close the other GM tab).",
-      "StoppedVisited": "Stop {n}: {name} (visited) · {clock}."
+      "StoppedVisited": "Stop {n}: {name} (visited) · {clock}.",
+      "PortalClick": "Click on the atlas where the portal stands (Esc to cancel).",
+      "PortalCancelled": "No portal placed.",
+      "PortalNoDest": "«{name}» leads nowhere on our maps: set where it leads in its card."
     },
     "Clock": {
       "Day": "Day {day}",
@@ -395,6 +405,58 @@
     "Progress": {
       "Next": "next: {count} → {text}",
       "AllDone": "all steps reached"
+    },
+    "Portal": {
+      "NewName": "New portal",
+      "NewNameIn": "Portal · {name}",
+      "Kind": {
+        "book": "From the books",
+        "story": "Ours, for the story",
+        "hb": "Made at the table"
+      },
+      "KindLabel": "Kind",
+      "Legend": "Portal",
+      "IsPortal": "This place is a portal",
+      "IsPortalHint": "A door, arch or anything else that leads somewhere. Untick to make it an ordinary place again.",
+      "StandsIn": "Stands in",
+      "StandsInHint": "A portal inside a place (a door in the Wayfarer's taproom) needs no pin of its own: it shows on that place's card and as ◈ on its pin.",
+      "OnItsOwn": "— on its own (its own pin) —",
+      "LeadsTo": "Leads to",
+      "Elsewhere": "— somewhere not on our maps —",
+      "ToText": "Destination (text)",
+      "ToTextHint": "Where it leads when that isn't a place on our maps (Ysgard, a pit-fighting arena).",
+      "Key": "Key",
+      "KeyItem": "Key item in the party",
+      "KeyItemHint": "An item name to look for in the heroes' and the group's inventories, e.g. lapis lazuli.",
+      "Quirk": "Quirk",
+      "QuirkHint": "One-way, shifting, slow, taxing, temporary, tumbling lock… or your own.",
+      "OneWay": "One-way",
+      "DestKnown": "Players know where it leads",
+      "DestKnownHint": "Off: they can know the portal and still not know its destination.",
+      "KeyKnown": "Players know its key",
+      "DestUnknown": "nobody knows where",
+      "NoDest": "not set",
+      "DestSecret": "players aren't told",
+      "PlayersKnow": "players know",
+      "NobodyCarries": "Nobody in the party carries «{item}»",
+      "Here": "Portals here",
+      "ToHere": "Portals that lead here",
+      "Rumoured": "A portal you've heard about",
+      "InPlace": "in «{name}»",
+      "In": "in",
+      "Through": "Through the portal",
+      "ThroughHint": "Move the party to where it leads (the stop is recorded, travelling through a portal).",
+      "Pin": "Pin on the map",
+      "PinHint": "Give it its own pin beside the place it stands in.",
+      "AddHere": "Portal here",
+      "AddHereHint": "A new portal inside this place (made at the table, hidden).",
+      "InsideHint": "Stands inside another place: no pin of its own.",
+      "PlaceByClick": "Place by click",
+      "PlaceByClickHint": "Then click on the atlas where the portal stands.",
+      "New": "New portal",
+      "NewHint": "A new portal in the middle of the view.",
+      "None": "No portals yet. Make one with the toolbar's door button, from a place card (Portal here), or in the pack.",
+      "HostCantBeInside": "«{name}» holds portals of its own, so it can't stand inside another place: it keeps its own pin."
     }
   }
 }

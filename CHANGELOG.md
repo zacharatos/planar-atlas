@@ -2,6 +2,27 @@
 
 All notable changes to this module. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.3.0]
+
+Portals.
+
+### Added
+- **Portals.** Any place can be a portal (`portal` in the pack, or *This place is a portal* in its edit form): its **kind** (*from the books*, *ours, for the story*, *made at the table*), the place it **stands in**, where it **leads** (a place on any atlas, or text for somewhere off the maps), its **key**, a **key item** to look for in the party's inventories, its **quirk**, **one-way**, and whether players are told where it leads and what opens it.
+- Portal pins are tinted by kind (cyan, violet, amber). A portal **inside a place** has no pin of its own: the place's pin carries ◈ (◈n for several; players only for the portals they know) and its card lists them.
+- Every place card lists **Portals here** and **Portals that lead here**, each a link to the portal's card. Players see only the portals they know, and only what they've been told.
+- **Make a portal on the fly** (GM): the door button in the token controls, then click on the atlas; **Portal here** on any place's card (a portal inside it); **New portal** / **Place by click** in the console. New portals are *made at the table* and hidden until you reveal them.
+- **Through the portal** (portal card): the party goes to its destination (the GM's view switches atlas if needed); the stop is recorded travelling through a portal, with "through «…»" as its note, and the portal becomes visited. A destination inside a place lands on that place.
+- **Pin on the map** gives a portal inside a place its own pin beside it.
+- The portal card tells the GM who carries its key item ("✓ Nanouk: Lapis Lazuli Eye", or nobody).
+- **Portal lines on the atlas** (setting, per user, on): a thin dashed line from a portal to its destination when both are on the same atlas, ring at the destination, arrow for one-way doors.
+- Console: a **Portals** tab, every portal by atlas (kind, where it stands, where it leads, status), searchable.
+- API: `portals(name?)`, `travelThrough(name)`, `createPortal({at, point})`.
+- Pack: `places[].portal` (still schema 1; packs without portals are unchanged). Validation checks the kind, that `at` is a place on the same atlas and not itself inside one, and that `to` exists. The example pack has two portals.
+
+### Changed
+- Deleting a place keeps its portals: those inside it get a pin where it stood, those leading to it keep its name as their destination.
+- *Move the party here* on a portal inside a place moves the party to that place.
+
 ## [0.2.2]
 
 Fixes from Session 03.

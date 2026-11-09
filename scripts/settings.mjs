@@ -49,6 +49,10 @@ export function registerSettings({ onChange } = {}) {
     name: "PLANAR_ATLAS.Settings.animateMarker.Name", hint: "PLANAR_ATLAS.Settings.animateMarker.Hint",
     scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("draw")
   });
+  game.settings.register(MODULE_ID, "showPortalLinks", {
+    name: "PLANAR_ATLAS.Settings.showPortalLinks.Name", hint: "PLANAR_ATLAS.Settings.showPortalLinks.Hint",
+    scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("draw")
+  });
   game.settings.register(MODULE_ID, "showLabels", {
     name: "PLANAR_ATLAS.Settings.showLabels.Name", hint: "PLANAR_ATLAS.Settings.showLabels.Hint",
     scope: "client", config: true, type: Boolean, default: true, onChange: () => onChange?.("draw")

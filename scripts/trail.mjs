@@ -2,7 +2,7 @@
 // per session (older sessions fainter), arrows where the road leaves one edge of a wrapped map and comes back at
 // another, the area labels (wards, regions) and a soft pulse where the party stands. It is redrawn only when the
 // road or the scene changes; nothing is saved while it draws.
-import { MODULE_ID, SESSION_COLORS, FONT } from "./constants.mjs";
+import { MODULE_ID, SESSION_COLORS, FONT, PORTAL_KIND_STYLE } from "./constants.mjs";
 import { setting } from "./settings.mjs";
 import { local } from "./i18n.mjs";
 import { road, atlasDef } from "./state.mjs";
@@ -69,6 +69,52 @@ function dashed(g, a, b, dash, gap) {
   }
 }
 
+/**
+ * Thin dashed lines from each portal to where it leads, when both ends are on this atlas, in the portal kind's
+ * colour (a portal inside a place starts from that place's pin). Players see a line only for a portal they know,
+ * whose destination they're told and whose both ends they can see on the map; the GM sees all of them
+ * (hidden ones faint).
+ */
+function portalLinks(atlasId, rect, unit) {
+  const here = placesOn(atlasId);
+  const byId = new Map(here.map(x => [x.place.id, x]));
+  const gm = game.user.isGM;
+  const seen = x => !!x && !!x.note && !x.note.getFlag(MODULE_ID, "parked") && Number.isFinite(x.x) && (gm || !["hidden", "rumoured"].includes(x.place.status));
+  // Where a place shows on the map: its own pin, else the pin of the place it stands in.
+  const spot = x => (x?.note ? x : byId.get(x?.place.portal?.at));
+  const g = new PIXI.Graphics();
+  let drawn = 0;
+  for (const x of here) {
+    const po = x.place.portal;
+    if (!po?.to || !byId.has(po.to)) continue;
+    if (!gm && (!["known", "visited"].includes(x.place.status) || !po.destKnown)) continue;
+    const a = spot(x), b = spot(byId.get(po.to));
+    if (!seen(a) || !seen(b) || a === b) continue;
+    const p = fromNorm(rect, a), q = fromNorm(rect, b);
+    const col = color(PORTAL_KIND_STYLE[po.kind]?.color ?? "#7fd6e8");
+    const alpha = gm && x.place.status === "hidden" ? 0.35 : 0.85;
+    g.lineStyle({ width: unit * 1.6, color: 0x000000, alpha: alpha * 0.4, cap: "round" });
+    dashed(g, p, q, unit * 2.5, unit * 2.5);
+    g.lineStyle({ width: unit * 0.8, color: col, alpha, cap: "round" });
+    dashed(g, p, q, unit * 2.5, unit * 2.5);
+    // The destination end: a small ring (and the arrow's way for a one-way door).
+    g.lineStyle({ width: unit * 0.8, color: col, alpha });
+    g.drawCircle(q.x, q.y, unit * 3.2);
+    if (po.oneWay) {
+      const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      const ux = (q.x - p.x) / len, uy = (q.y - p.y) / len;
+      const tip = { x: q.x - ux * unit * 3.4, y: q.y - uy * unit * 3.4 }, s = unit * 2.6;
+      g.lineStyle(0);
+      g.beginFill(col, alpha);
+      g.drawPolygon([tip.x, tip.y, tip.x - ux * s - uy * s * 0.6, tip.y - uy * s + ux * s * 0.6, tip.x - ux * s + uy * s * 0.6, tip.y - uy * s - ux * s * 0.6]);
+      g.endFill();
+    }
+    drawn++;
+  }
+  if (drawn) layer.addChild(g);
+  else g.destroy();
+}
+
 export function draw() {
   teardown();
   const scene = canvas?.scene;
@@ -101,6 +147,8 @@ export function draw() {
       layer.addChild(txt);
     }
   }
+
+  if (setting("showPortalLinks")) portalLinks(atlasId, rect, unit);
 
   const r = road();
   const hiddenHere = r.hidden.all || (!game.user.isGM && r.hidden.players);

@@ -5,7 +5,7 @@ import { t, info, warn, local } from "./i18n.mjs";
 import { setting, setSetting } from "./settings.mjs";
 import { road, mutateRoad, company, isCompanyToken, isActiveGM, defs, stamp } from "./state.mjs";
 import { atlasIdOf, sceneOfAtlas, norm, px, atlasName } from "./atlas.mjs";
-import { placesOn, placeName, markVisited, placeOfPage } from "./places.mjs";
+import { placesOn, placeName, markVisited, placeOfPage, pageOfPlace, noteOfPage } from "./places.mjs";
 import { nearest, addStop, removeStop, updateStop, archiveJourney, clearJourney, deleteJourney, lastStop, activeJourney, localText, sameSpot } from "./util.mjs";
 import * as clock from "./clock.mjs";
 import { planTrip, rollEncounters } from "./travel.mjs";
@@ -150,10 +150,12 @@ export function onTokenMoved(doc, changed, options) {
   return moving;
 }
 
-async function recordMove(doc, forced = null) {
+async function recordMove(doc, forced = null, { how = null, note = "" } = {}) {
   const scene = doc.parent;
   const atlasId = atlasIdOf(scene);
   const { stop, snapTo, area } = stopAt(scene, centerOf(doc), forced);
+  if (how) stop.how = how;
+  if (note) stop.note = note;
   if (snapTo) await moveTokenCenter(doc, snapTo);
   const prev = lastStop(road());
   // Same place as the last stop: nothing to record, but say so (a silent Move looked broken at the table).
@@ -187,16 +189,19 @@ export function lockForPlayers(doc, changed) {
 /**
  * Move the party to a place (from a card or a journal button): the stop is recorded for that place directly
  * (no snapping, no guessing from where the token lands), then the token is moved there. Every outcome ends in one toast.
+ * A portal standing inside a place has no pin: the party goes to the place it stands in.
+ * `how` and `note` (optional) go on the stop (a trip through a portal says so).
  */
-export async function moveCompanyTo(page) {
+export async function moveCompanyTo(page, { how = null, note = "" } = {}) {
   if (!game.user.isGM) return null;
   // Only the active GM's browser records the road: say so instead of moving a token that nobody records.
   if (!isActiveGM()) return warn("Notify.NotActiveGM");
+  if (!noteOfPage(page) && placeOfPage(page)?.portal?.at) page = pageOfPlace(placeOfPage(page).portal.at) ?? page;
   const pl = placeOfPage(page);
   const scene = sceneOfAtlas(pl?.atlas);
   if (!scene) return warn("Notify.NoScene", { name: atlasName(pl?.atlas) });
-  const note = scene.notes.find(n => n.pageId === page.id);
-  if (!note) return warn("Notify.NotPinned", { name: placeName(pl) });
+  const pin = scene.notes.find(n => n.pageId === page.id);
+  if (!pin) return warn("Notify.NotPinned", { name: placeName(pl) });
   let token = companyToken(scene);
   if (!token) {
     if (scene !== canvas.scene) return warn("Notify.NoCompanyToken", { name: scene.name });
@@ -204,12 +209,34 @@ export async function moveCompanyTo(page) {
   }
   if (!token) return null;
   // The token moves with the skip flag (onTokenMoved ignores it); the stop is recorded here, for this place.
-  const spot = { x: note.x, y: note.y, page, place: pl };
+  const spot = { x: pin.x, y: pin.y, page, place: pl };
   moving = moving.then(async () => {
     await moveTokenCenter(token, spot);
-    await recordMove(token, spot);
+    await recordMove(token, spot, { how, note });
   }).catch(err => { console.error(`${MODULE_ID} | road`, err); warn("Notify.Failed"); });
   await moving;
+  return token;
+}
+
+/**
+ * Take the party through a portal (GM): the stop is recorded at the portal's destination, travelling "portal"
+ * (if the pack has that way of travelling), with a note naming the portal. A destination on another atlas is
+ * brought on screen first, so the party's token can be put there. The portal itself becomes visited.
+ */
+export async function travelThrough(portalPage) {
+  if (!game.user.isGM) return null;
+  if (!isActiveGM()) return warn("Notify.NotActiveGM");
+  const portal = placeOfPage(portalPage);
+  const name = placeName(portal);
+  if (!portal?.portal?.to) return warn("Notify.PortalNoDest", { name });
+  const dest = pageOfPlace(portal.portal.to);
+  if (!dest) return warn("Notify.NoPlace", { name: portal.portal.to });
+  // The GM's view follows the party to the destination's atlas (players stay where they are until pulled or the scene is activated).
+  const scene = sceneOfAtlas(placeOfPage(dest).atlas);
+  if (scene && scene !== canvas.scene) await scene.view();
+  const how = "portal" in defs().hows ? "portal" : null;
+  const token = await moveCompanyTo(dest, { how, note: t("Road.ViaPortal", { name: placeName(portal, "el") }) });
+  if (token) await markVisited(portal.id);
   return token;
 }
 

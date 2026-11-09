@@ -10,7 +10,8 @@ import {
   visitsOf, sessionOrder, sessionAlpha, sameSpot,
   validatePack, placeData, playerLabel, exportPack, parseAtlasArgs, roadMarkdown, purseMarkdown,
   clockParts, hhmm, parseHHMM, epochFor, bandAt, durationParts,
-  routeLength, travelRule, travelEstimate, rolledSeconds, tableRow, encounterTables, progressOf, stepsCrossed
+  routeLength, travelRule, travelEstimate, rolledSeconds, tableRow, encounterTables, progressOf, stepsCrossed,
+  portalData, isInside, portalLinks, portalsByHost, portalForPlayer, pinTint, hostMark, keyHolders
 } from "../scripts/util.mjs";
 
 /* ---------------- text ---------------- */
@@ -381,4 +382,108 @@ test("the party marker's pulse grows and fades, and repeats", async () => {
   assert.deepEqual(pulseFrame(1.8), pulseFrame(0));
   assert.deepEqual(pulseFrame(NaN), pulseFrame(0));
   assert.ok(pulseFrame(-0.5).scale >= 0.6);
+});
+
+/* ---------------- portals (0.3.0) ---------------- */
+
+test("portalData: defaults, and null for an ordinary place", () => {
+  assert.equal(placeData({ id: "p", atlas: "a", name: "P" }).portal, null);
+  const po = placeData({ id: "g", atlas: "a", name: "G", portal: { at: "inn", kind: "nonsense" } }).portal;
+  assert.equal(po.kind, "hb", "an unknown kind is made at the table");
+  assert.equal(po.at, "inn");
+  assert.equal(po.destKnown, true, "players are told where a known portal leads unless the GM says otherwise");
+  assert.equal(po.keyKnown, false);
+  assert.equal(po.oneWay, false);
+  assert.equal(portalData("x"), null);
+});
+
+test("isInside: a portal in a place with no position of its own", () => {
+  const inside = placeData({ id: "d", atlas: "a", name: "D", portal: { at: "inn" } });
+  assert.equal(isInside(inside, { x: null, y: null }), true);
+  assert.equal(isInside(inside, { x: 0.2, y: 0.3 }), false, "pinned beside its host");
+  assert.equal(isInside(placeData({ id: "e", atlas: "a", name: "E", portal: {} })), false);
+  assert.equal(isInside(placeData({ id: "f", atlas: "a", name: "F" })), false);
+});
+
+test("portalLinks: the portals in a place and the ones that lead to it", () => {
+  const places = [
+    placeData({ id: "inn", atlas: "a", name: "Inn" }),
+    placeData({ id: "d1", atlas: "a", name: "D1", portal: { at: "inn", to: "temple" } }),
+    placeData({ id: "d2", atlas: "a", name: "D2", portal: { at: "inn", toText: "Ysgard" } }),
+    placeData({ id: "arch", atlas: "b", name: "Arch", portal: { to: "inn" } }),
+    placeData({ id: "loop", atlas: "a", name: "Loop", portal: { at: "inn", to: "inn" } }),
+    placeData({ id: "temple", atlas: "a", name: "Temple" })
+  ];
+  const inn = portalLinks(places, "inn");
+  assert.deepEqual(inn.here.map(p => p.id), ["d1", "d2", "loop"]);
+  assert.deepEqual(inn.to.map(p => p.id), ["arch"], "a door inside that leads back is listed once");
+  assert.deepEqual(portalLinks(places, "temple").to.map(p => p.id), ["d1"]);
+  assert.deepEqual(portalLinks(places, "d1"), { here: [], to: [] });
+  assert.deepEqual([...portalsByHost(places).get("inn")].map(p => p.id), ["d1", "d2", "loop"]);
+});
+
+test("portalForPlayer: hidden portals say nothing; the destination and key only when told", () => {
+  const dest = placeData({ id: "t", atlas: "a", status: "hidden", name: { el: "Ναός", en: "Temple" } });
+  const base = { id: "d", atlas: "a", name: { el: "Πόρτα", en: "Door" }, portal: { to: "t", key: { el: "Καρφί" } } };
+  assert.equal(portalForPlayer(placeData({ ...base, status: "hidden" }), dest, "el"), null);
+  const rumour = portalForPlayer(placeData({ ...base, status: "rumoured" }), dest, "el");
+  assert.equal(rumour.rumoured, true);
+  assert.equal(rumour.name, "", "a rumoured portal has no name yet");
+  assert.equal(rumour.dest, "");
+  const known = portalForPlayer(placeData({ ...base, status: "known" }), dest, "el");
+  assert.equal(known.name, "Πόρτα");
+  assert.equal(known.dest, "Ναός", "knowing a portal is knowing where it leads");
+  assert.equal(known.key, "", "the key is told only when the GM ticks it");
+  const secret = portalForPlayer(placeData({ ...base, status: "known", portal: { ...base.portal, destKnown: false, keyKnown: true } }), dest, "el");
+  assert.equal(secret.dest, "");
+  assert.equal(secret.key, "Καρφί");
+  const off = portalForPlayer(placeData({ ...base, status: "visited", portal: { toText: { el: "Ύσγκαρντ", en: "Ysgard" } } }), null, "en");
+  assert.equal(off.dest, "Ysgard");
+});
+
+test("pinTint, hostMark and keyHolders", () => {
+  const cats = { landmark: { color: "#111111" }, portal: { color: "#222222" } };
+  const kinds = { book: { color: "#aaaaaa" }, story: { color: "#bbbbbb" } };
+  assert.equal(pinTint(placeData({ cat: "portal", portal: { kind: "story" } }), cats, kinds), "#bbbbbb");
+  assert.equal(pinTint(placeData({ cat: "landmark", portal: { kind: "story" } }), cats, kinds), "#111111", "a portal filed under another category keeps its colour");
+  assert.equal(pinTint(placeData({ cat: "nope" }), cats, kinds), "#111111");
+  const inside = [{ status: "hidden" }, { status: "known" }];
+  assert.equal(hostMark(inside, true), "◈2");
+  assert.equal(hostMark(inside, false), "◈");
+  assert.equal(hostMark([{ status: "hidden" }], false), "");
+  assert.equal(hostMark([], true), "");
+  const members = [{ name: "Nanouk", items: ["Rope", "Lapis Lazuli Eye"] }, { name: "Dumien", items: ["Bell"] }];
+  assert.deepEqual(keyHolders(members, "lapis lazuli"), [{ name: "Nanouk", item: "Lapis Lazuli Eye" }]);
+  assert.deepEqual(keyHolders(members, ""), []);
+  assert.deepEqual(keyHolders(members, "chain"), []);
+});
+
+test("validatePack checks portals", () => {
+  const pack = {
+    schema: 1, id: "x", atlases: [{ id: "a" }, { id: "b" }],
+    places: [
+      { id: "inn", atlas: "a", name: "Inn" },
+      { id: "door", atlas: "a", name: "Door", portal: { at: "inn", to: "ruin" } },
+      { id: "ruin", atlas: "b", name: "Ruin", portal: { to: "inn" } },
+      { id: "bad1", atlas: "a", name: "B1", portal: { kind: "weird", at: "ruin" } },
+      { id: "bad2", atlas: "a", name: "B2", portal: { at: "door", to: "nowhere" } },
+      { id: "bad3", atlas: "a", name: "B3", portal: { to: "bad3" } },
+      { id: "bad4", atlas: "a", name: "B4", portal: "yes" }
+    ]
+  };
+  const text = validatePack(pack).join("\n");
+  for (const bit of ["bad1: unknown portal kind", "bad1: portal at \"ruin\", which is on another atlas", "bad2: portal at \"door\", which is itself inside",
+    "bad2: portal to unknown place", "bad3: a portal can't lead to itself", "bad4: portal must be an object"]) assert.ok(text.includes(bit), bit);
+  for (const ok of ["place door", "place ruin", "place inn"]) assert.ok(!text.includes(ok), ok);
+});
+
+test("exportPack keeps portals and leaves ordinary places without one", () => {
+  const out = exportPack({ schema: 1, id: "x", atlases: [{ id: "a" }], places: [] }, [
+    { ...placeData({ id: "p", atlas: "a", name: "P" }), x: 0.1, y: 0.1 },
+    { ...placeData({ id: "d", atlas: "a", name: "D", portal: { at: "p", kind: "story" } }), x: null, y: null }
+  ]);
+  assert.equal("portal" in out.places[0], false);
+  assert.equal(out.places[1].portal.kind, "story");
+  assert.equal(out.places[1].portal.at, "p");
+  assert.deepEqual(validatePack(out), []);
 });

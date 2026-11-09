@@ -3,11 +3,12 @@
 // page is GM-only; any other status gives players Observer access. (Limited would show the note, but Foundry
 // doesn't let a player double-click a note whose text page they can only see as Limited, so no card would open.)
 // The page's own text is player-safe (name and what they know); the GM's notes live only in the flags.
-import { MODULE_ID, FOLDER, PIN_SIZE, HIDDEN_ALPHA } from "./constants.mjs";
+import { MODULE_ID, FOLDER, PIN_SIZE, HIDDEN_ALPHA, PORTAL_KIND_STYLE } from "./constants.mjs";
 import { t, info, warn, local, language } from "./i18n.mjs";
 import { pack, defs, isActiveGM } from "./state.mjs";
 import { atlasIdOf, sceneOfAtlas, norm, px, atlasName } from "./atlas.mjs";
-import { placeData, playerLabel, parkingSpot, localText, exportPack, STATUSES, escapeHTML as esc, findByName, progressOf, stepsCrossed } from "./util.mjs";
+import { placeData, playerLabel, parkingSpot, localText, exportPack, STATUSES, escapeHTML as esc, findByName, progressOf, stepsCrossed,
+  isInside, pinTint, portalsByHost, hostMark } from "./util.mjs";
 
 const OWN = () => CONST.DOCUMENT_OWNERSHIP_LEVELS;
 
@@ -66,6 +67,30 @@ export function findPlace(query) {
 
 export const placeName = (place, lang = language()) => localText(place?.name, lang) || place?.id || "?";
 
+/** A place's page by its id (any atlas), or null. */
+export const pageOfPlace = id => (id ? placePages().find(p => placeOfPage(p).id === id) ?? null : null);
+
+/** Every place's data (all atlases). */
+export const allPlaces = () => placePages().map(placeOfPage);
+
+/* ---------------- portals inside places ---------------- */
+
+// Which places hold portals (for the mark on their pins). Refreshing a note happens often, so this is kept and
+// thrown away when a place page changes (main.mjs › forgetPortals).
+let hosts = null;
+export const forgetPortals = () => { hosts = null; };
+function portalsInside(placeId) {
+  hosts ??= portalsByHost(allPlaces());
+  return hosts.get(placeId) ?? [];
+}
+
+/** The note of the place a portal stands in (null if it stands on its own, or its host has no pin). */
+export function hostNoteOf(page) {
+  const at = placeOfPage(page)?.portal?.at;
+  const host = pageOfPlace(at);
+  return host ? noteOfPage(host) : null;
+}
+
 /* ---------------- the atlas journal ---------------- */
 
 async function folder() {
@@ -115,7 +140,7 @@ function noteDataFor(page, pl, { x, y }) {
   return {
     entryId: page.parent.id, pageId: page.id,
     x: Math.round(x), y: Math.round(y),
-    texture: { src: cat.icon, tint: cat.color ?? "#ffffff" },
+    texture: { src: cat.icon, tint: pinTint(pl, defs().categories, PORTAL_KIND_STYLE) },
     iconSize: PIN_SIZE, text: pageName(pl), fontSize: 26,
     textAnchor: CONST.TEXT_ANCHOR_POINTS?.BOTTOM ?? 1,
     global: true,
@@ -140,7 +165,7 @@ export async function setupPlaces(atlasId) {
   let created = 0, updated = 0, parked = 0, pinned = 0;
 
   const isPlaced = p => Number.isFinite(p.x) && Number.isFinite(p.y);
-  const toCreate = fromPack.filter(p => !pages.has(p.id)).map(p => pageDataFor(placeData(p), { parked: !isPlaced(p) }));
+  const toCreate = fromPack.filter(p => !pages.has(p.id)).map(p => pageDataFor(placeData(p), { parked: !isPlaced(p) && !isInside(p, p) }));
   const fresh = new Set(toCreate.map(c => c.flags[MODULE_ID].place.id));
   if (toCreate.length) {
     const made = await entry.createEmbeddedDocuments("JournalEntryPage", toCreate);
@@ -165,6 +190,8 @@ export async function setupPlaces(atlasId) {
   for (const p of fromPack) {
     const page = pages.get(p.id);
     if (!page || noted.has(page.id)) continue;
+    // A portal inside another place (the Wayfarer's doors) has no pin of its own: it shows on the host's card.
+    if (isInside(p, p)) continue;
     const placed = isPlaced(p);
     const spot = placed ? { x: p.x, y: p.y } : parkingSpot(parkIndex++);
     const data = noteDataFor(page, placeOfPage(page), px(scene, spot));
@@ -191,7 +218,7 @@ export async function savePlace(page, patch) {
   const note = noteOfPage(page);
   if (note) {
     const cat = defs().categories[next.cat] ?? defs().categories.landmark;
-    const upd = { text: pageName(next), "texture.src": cat.icon, "texture.tint": cat.color ?? "#ffffff" };
+    const upd = { text: pageName(next), "texture.src": cat.icon, "texture.tint": pinTint(next, defs().categories, PORTAL_KIND_STYLE) };
     if (patch.status && next.status !== "hidden" && note.getFlag(MODULE_ID, "parked")) info("Notify.RevealedParked", { name: placeName(next) });
     await note.update(upd);
   }
@@ -265,6 +292,41 @@ export async function createPlace(point = null) {
   return page;
 }
 
+/**
+ * A new portal (GM), made up at the table: inside a place (`at`: its id; no pin, it shows on the place's card),
+ * or standing on its own at a canvas point of the viewed atlas. Hidden until the GM says otherwise.
+ */
+export async function createPortal({ at = "", point = null } = {}) {
+  if (!game.user.isGM) return null;
+  const host = at ? placeOfPage(pageOfPlace(at)) : null;
+  const atlasId = host?.atlas ?? atlasIdOf(canvas.scene);
+  if (!atlasId) return warn("Notify.NotOnAtlas");
+  const entry = await atlasJournal(atlasId);
+  const id = `portal-${foundry.utils.randomID(6).toLowerCase()}`;
+  const name = host ? t("Portal.NewNameIn", { name: placeName(host, "el") }) : t("Portal.NewName");
+  const pl = placeData({ id, atlas: atlasId, cat: "portal", status: "hidden", name: { el: name, en: name }, portal: { kind: "hb", at: host?.id ?? "" } });
+  const [page] = await entry.createEmbeddedDocuments("JournalEntryPage", [pageDataFor(pl)]);
+  if (!host) {
+    const scene = sceneOfAtlas(atlasId);
+    const spot = point ?? { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y };
+    await scene.createEmbeddedDocuments("Note", [noteDataFor(page, pl, spot)]);
+  }
+  forgetPortals();
+  return page;
+}
+
+/** Give a portal that stands inside a place a pin of its own, just beside its host (or in the middle of the view). */
+export async function pinPortal(page) {
+  if (!game.user.isGM || !page || noteOfPage(page)) return null;
+  const pl = placeOfPage(page);
+  const scene = sceneOfAtlas(pl?.atlas);
+  if (!scene) return warn("Notify.NoScene", { name: atlasName(pl?.atlas) });
+  const host = hostNoteOf(page);
+  const spot = host ? { x: host.x + PIN_SIZE * 1.2, y: host.y + PIN_SIZE * 0.6 } : { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y };
+  const [note] = await scene.createEmbeddedDocuments("Note", [noteDataFor(page, pl, spot)]);
+  return note;
+}
+
 /** Delete a place: its map note and its page (asks first). Files are never touched. */
 export async function deletePlace(page) {
   if (!game.user.isGM || !page) return false;
@@ -273,9 +335,21 @@ export async function deletePlace(page) {
     window: { title: t("Place.DeleteTitle") }, content: `<p>${esc(t("Place.DeleteAsk", { name }))}</p>`
   });
   if (!ok) return false;
+  const gone = placeOfPage(page);
   const note = noteOfPage(page);
+  // Portals that pointed at it keep its name as a destination; portals inside it get a pin where it stood.
+  for (const other of placePages()) {
+    const po = placeOfPage(other)?.portal;
+    if (!po || other === page || (po.to !== gone.id && po.at !== gone.id)) continue;
+    const next = { ...po };
+    if (po.to === gone.id) Object.assign(next, { to: "", toText: gone.name });
+    if (po.at === gone.id) next.at = "";
+    await savePlace(other, { portal: next });
+    if (po.at === gone.id && note && !noteOfPage(other)) await note.parent.createEmbeddedDocuments("Note", [noteDataFor(other, placeOfPage(other), { x: note.x, y: note.y })]);
+  }
   if (note) await note.delete();
   await page.delete();
+  forgetPortals();
   return true;
 }
 
@@ -307,7 +381,10 @@ export function styleNote(note) {
   const pl = placeOfNote(note);
   if (!pl) return;
   const gm = game.user.isGM;
-  const label = gm ? placeName(pl) + (pl.status === "hidden" ? " ⦸" : pl.status === "rumoured" ? " ?" : "") : playerLabel(pl, language());
+  let label = gm ? placeName(pl) + (pl.status === "hidden" ? " ⦸" : pl.status === "rumoured" ? " ?" : "") : playerLabel(pl, language());
+  // A place with portals inside it carries a mark (players: only for the portals they know about).
+  const mark = label ? hostMark(portalsInside(pl.id), gm) : "";
+  if (mark) label = `${label} ${mark}`;
   try {
     if (note.controlIcon) note.controlIcon.alpha = gm && pl.status === "hidden" ? HIDDEN_ALPHA : 1;
     if (note.tooltip && note.tooltip.text !== label) note.tooltip.text = label;

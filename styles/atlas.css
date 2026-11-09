@@ -129,3 +129,20 @@ a.pa-button.busy { opacity: 0.5; pointer-events: none; }
 .pa-travel input[type="number"] { width: 6em; }
 .planar-atlas-chat p { margin: 0 0 4px; }
 .planar-atlas-chat .pa-meta { opacity: 0.7; font-size: 0.9em; }
+
+/* Portals (0.3.0): what a portal is, the portals of a place, the console's registry. --pa-kind is the kind's colour. */
+.planar-atlas .pa-portal { list-style: none; margin: 8px 0; padding: 6px 8px; border-left: 3px solid var(--pa-kind, #7fd6e8); background: rgba(127, 214, 232, 0.07); }
+.planar-atlas .pa-portal li { margin: 2px 0; }
+.planar-atlas .pa-portal .pa-k { color: var(--pa-dim); }
+.planar-atlas .pa-portal .pa-kind { color: var(--pa-kind, #7fd6e8); font-weight: bold; }
+.planar-atlas .pa-portal a, .planar-atlas .pa-portals a { cursor: pointer; text-decoration: underline dotted; }
+.planar-atlas .pa-ok { color: #8fd18a; }
+.planar-atlas .pa-portals h4 { margin: 10px 0 4px; font-size: 1em; border-bottom: 1px dotted var(--pa-line); }
+.planar-atlas .pa-portals ul { list-style: none; margin: 0; padding: 0; }
+.planar-atlas .pa-portal-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.planar-atlas .pa-portal-row.s-hidden { opacity: 0.6; }
+.planar-atlas .pa-kind-dot { color: var(--pa-kind, #7fd6e8); width: 1.2em; text-align: center; }
+.planar-atlas .pa-st-mini { margin-left: auto; color: var(--pa-dim); font-size: 0.85em; }
+.planar-atlas .pa-kind-chip { color: var(--pa-kind); margin-right: 10px; white-space: nowrap; }
+.planar-atlas .pa-portal-line { display: flex; flex-direction: column; min-width: 0; }
+.planar-atlas .pa-portal-form legend i { color: #7fd6e8; }

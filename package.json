@@ -1,6 +1,6 @@
 {
   "name": "planar-atlas",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "Development tooling for the Planar Atlas Foundry VTT module (the module itself has no dependencies).",
   "type": "module",
