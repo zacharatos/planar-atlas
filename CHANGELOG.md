@@ -2,6 +2,15 @@
 
 All notable changes to this module. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.3.1]
+
+Fixes from trying the portals.
+
+### Fixed
+- **The place card scrolls.** A long edit form (or a long list of portals) was cut off at the bottom of the window, with no way to reach the fields below.
+- **A portal's fields come first in its edit form** (right after *Kind of place*): is it a portal, kind, where it stands, where it leads, key, key item, quirk. They were at the very bottom, under Links. An ordinary place still has them at the bottom, to tick *This place is a portal*.
+- The multi-line fields of the edit form (what the players know, the rumour, the GM notes) use the full width instead of a narrow column.
+
 ## [0.3.0]
 
 Portals.

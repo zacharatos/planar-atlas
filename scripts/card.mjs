@@ -252,10 +252,13 @@ export class PlaceCard extends ApplicationV2 {
     const field = (name, label, value, { area = false, hint = "" } = {}) => `<div class="form-group ${area ? "stacked" : ""}"><label>${esc(label)}</label>
       <div class="form-fields">${area ? `<textarea name="${name}" rows="3">${esc(value)}</textarea>` : `<input type="text" name="${name}" value="${esc(value)}">`}</div>
       ${hint ? `<p class="hint">${esc(hint)}</p>` : ""}</div>`;
+    // A portal's own fields come first (key, destination); for an ordinary place they wait at the bottom.
+    const portalPart = this.#portalForm(pl, field);
     return `<form class="pa-form">
       ${field("name.el", t("Form.NameEl"), localText(pl.name, "el"))}
       ${field("name.en", t("Form.NameEn"), localText(pl.name, "en"))}
       <div class="form-group"><label>${esc(t("Form.Category"))}</label><div class="form-fields"><select name="cat">${cats}</select></div></div>
+      ${pl.portal ? portalPart : ""}
       ${field("text.el", t("Form.TextEl"), localText(pl.text, "el"), { area: true })}
       ${field("rumour.el", t("Form.RumourEl"), localText(pl.rumour, "el"), { area: true, hint: t("Form.RumourHint") })}
       ${field("gm", t("Form.Gm"), pl.gm, { area: true })}
@@ -272,7 +275,7 @@ export class PlaceCard extends ApplicationV2 {
         ${field("links.prep", t("Form.Prep"), L.prep, { hint: t("Form.PrepHint") })}
         ${field("links.faction", t("Form.Faction"), L.faction)}
       </fieldset>
-      ${this.#portalForm(pl, field)}
+      ${pl.portal ? "" : portalPart}
       <footer class="pa-foot"><button type="submit"><i class="fa-solid fa-floppy-disk"></i> ${esc(t("Form.Save"))}</button>${btn("cancel", "fa-xmark", t("Form.Cancel"))}</footer>
     </form>`;
   }

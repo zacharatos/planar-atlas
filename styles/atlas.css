@@ -98,7 +98,12 @@
 .planar-atlas .pa-card { padding: 10px 12px; }
 .planar-atlas .pa-form { padding: 10px 12px; }
 .planar-atlas .pa-form .form-group.stacked { flex-direction: column; align-items: stretch; }
-.planar-atlas .pa-form textarea { min-height: 56px; }
+.planar-atlas .pa-form textarea { min-height: 56px; width: 100%; resize: vertical; }
+.planar-atlas .pa-form .form-fields:has(textarea) { flex: 1 1 100%; }
+/* The card's window scrolls when its content (a long form, a long list of portals) is taller than the window. */
+.planar-atlas.pa-card-window .window-content { overflow-y: auto; }
+.planar-atlas.pa-card-window .pa-card, .planar-atlas.pa-card-window .pa-form { flex: 0 0 auto; }
+.planar-atlas .pa-portal-form { margin: 8px 0; }
 
 /* Journal buttons */
 a.pa-button { padding: 1px 6px; border-radius: 4px; background: rgba(201, 161, 78, 0.18); border: 1px solid rgba(201, 161, 78, 0.5); cursor: pointer; white-space: nowrap; }
